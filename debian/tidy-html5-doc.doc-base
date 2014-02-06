@@ -1,0 +1,14 @@
+Document: tidy-html5
+Title: Clean up your Web pages with HTML TIDY
+Author: Dave Raggett
+Abstract: HTML TIDY validates, corrects, and pretty-prints HTML files
+ Tidy corrects markup in a way compliant with the latest standards, and
+ optimal for the popular browsers.  It has a comprehensive knowledge of
+ the attributes defined in the HTML recommendations from W3C, and
+ understands the US ASCII, ISO Latin-1, UTF-8 and the ISO 2022 family of
+ 7-bit encodings.
+Section: Web Development
+
+Format: HTML
+Index: /usr/share/doc/tidy-html5-doc/htmldoc/Overview.html
+Files: /usr/share/doc/tidy-html5-doc/htmldoc/*.html

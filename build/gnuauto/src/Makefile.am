@@ -1,7 +1,7 @@
-# Makefile [Makefile.am] - for tidy - HTML parser and pretty printer
+# Makefile [Makefile.am] - for tidy-html5 - HTML parser and pretty printer
 #
 #  Copyright (c) 1998-2008 World Wide Web Consortium
-#  (Massachusetts Institute of Technology, European Research 
+#  (Massachusetts Institute of Technology, European Research
 #  Consortium for Informatics and Mathematics, Keio University).
 #  All Rights Reserved.
 #
@@ -23,7 +23,7 @@
 #  but not limited to, warranties of merchantability or fitness
 #  for any particular purpose or that the use of the software or
 #  documentation will not infringe any third party patents,
-#  copyrights, trademarks or other rights. 
+#  copyrights, trademarks or other rights.
 #
 #  The copyright holders and contributing author(s) will not be
 #  liable for any direct, indirect, special or consequential damages
@@ -39,7 +39,7 @@
 #     not be misrepresented as being the original source.
 #  3. This Copyright notice may not be removed or altered from any
 #     source or altered source distribution.
-# 
+#
 #  The copyright holders and contributing author(s) specifically
 #  permit, without fee, and encourage the use of this source code
 #  as a component for supporting the Hypertext Markup Language in
@@ -51,9 +51,9 @@ AM_CFLAGS = @CFLAGS@ @WARNING_CFLAGS@
 
 INCLUDES = -I$(top_srcdir)/include
 
-lib_LTLIBRARIES = libtidy.la
+lib_LTLIBRARIES = libtidy-html5.la
 
-libtidy_la_SOURCES = \
+libtidy_html5_la_SOURCES = \
 	access.c	attrs.c		istack.c	parser.c \
 	tags.c		entities.c	lexer.c		pprint.c \
 	clean.c		localize.c	config.c	alloc.c \
@@ -61,7 +61,7 @@ libtidy_la_SOURCES = \
 	fileio.c	streamio.c	tagask.c	tmbstr.c \
 	utf8.c		tidylib.c	mappedio.c	gdoc.c
 
-libtidy_la_LDFLAGS = \
+libtidy_html5_la_LDFLAGS = \
 	-version-info $(LT_CURRENT):$(LT_REVISION):$(LT_AGE) \
 	-release $(LT_RELEASE) -no-undefined -export-dynamic
 

@@ -1,0 +1,34 @@
+#!/usr/bin/make -f
+# Uncomment this to turn on verbose mode.
+#export DH_VERBOSE=1
+
+DOCDIR=htmldoc
+HELPXML=$(DOCDIR)/tidy-html5-help.xml
+CONFIGXML=$(DOCDIR)/tidy-html5-config.xml
+MANXSL=$(DOCDIR)/tidy1.xsl
+MANPAGE=debian/tidy-html5.1
+
+override_dh_auto_build:
+	make -C build/gmake/
+	echo "************ Step2 *************"
+	sh build/gnuauto/setup.sh && ./configure --prefix=/usr --sysconfdir=/etc --localstatedir=/var && make
+	## Generate manpage from tidy output
+	LD_LIBRARY_PATH=$${LD_LIBRARY_PATH:+$$LD_LIBRARY_PATH:}$(CURDIR)/src/.libs/ \
+		$(CURDIR)/bin/tidy-html5 -xml-help > $(HELPXML)
+	LD_LIBRARY_PATH=$${LD_LIBRARY_PATH:+$$LD_LIBRARY_PATH:}$(CURDIR)/src/.libs/ \
+		$(CURDIR)/bin/tidy-html5 -xml-config > $(CONFIGXML)
+	/usr/bin/xsltproc -o $(MANPAGE) $(MANXSL) $(HELPXML)
+
+override_dh_auto_install:
+	DESTDIR=`pwd`/debian/tmp make -C build/gmake/ install
+	DESTDIR=`pwd`/debian/tmp make install
+
+override_dh_auto_clean:
+	dh_auto_clean
+	## Clean up generated files
+	rm -f $(MANPAGE)
+	rm -f $(HELPXML)
+	rm -f $(CONFIGXML)
+
+%:
+	dh $@

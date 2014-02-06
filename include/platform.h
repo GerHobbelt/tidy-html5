@@ -20,6 +20,7 @@ extern "C" {
 /* #define TIDY_CONFIG_FILE "/etc/tidy_config.txt" */ /* original */
 /* #define TIDY_CONFIG_FILE "/etc/tidyrc" */
 /* #define TIDY_CONFIG_FILE "/etc/tidy.conf" */
+#define TIDY_CONFIG_FILE "/etc/tidy-html5.conf"
 
 /*
   Uncomment the following #define if you are on a system
@@ -28,6 +29,7 @@ extern "C" {
   the HTML_TIDY environment variable is not set.
 */
 /* #define TIDY_USER_CONFIG_FILE "~/.tidyrc" */
+#define TIDY_USER_CONFIG_FILE "~/.tidyrc"
 
 /*
   Uncomment the following #define if your
@@ -43,6 +45,7 @@ extern "C" {
 */
 
 /* #define SUPPORT_GETPWNAM */
+#define SUPPORT_GETPWNAM
 
 
 /* Enable/disable support for Big5 and Shift_JIS character encodings */
@@ -215,7 +218,7 @@ extern "C" {
 
 #endif
 
-#elif defined(linux) || defined(__linux__)
+#elif defined(linux) || defined(__linux__) || defined(__GNU__) || defined(__GLIBC__)
 /* generic Linux */
 #define LINUX_OS
 #ifndef PLATFORM_NAME

@@ -1,0 +1,85 @@
+Source: tidy-html5
+Section: web
+Priority: optional
+Maintainer: Eberhard Beilharz <eb1@sil.org>
+Build-Depends: debhelper (>= 8), libtool, automake, autoconf, perl, xsltproc
+Standards-Version: 3.9.3
+Homepage: http://w3c.github.io/tidy-html5/
+
+Package: tidy-html5
+Section: web
+Architecture: any
+Depends: ${misc:Depends}, ${shlibs:Depends}, libtidy-html5 (>= ${binary:Version})
+Suggests: tidy-html5-doc
+Description: HTML syntax checker and reformatter
+ Corrects markup in a way compliant with the latest standards, and
+ optimal for the popular browsers.  It has a comprehensive knowledge
+ of the attributes defined in the HTML recommendations from W3C,
+ and understands the US ASCII, ISO Latin-1, UTF-8 and the ISO 2022
+ family of 7-bit encodings.  In the output:
+ .
+  * HTML entity names for characters are used when appropriate.
+  * Missing attribute quotes are added, and mismatched quotes found.
+  * Tags lacking a terminating '>' are spotted.
+  * Proprietary elements are recognized and reported as such.
+  * The page is reformatted, from a choice of indentation styles.
+ .
+ Tidy is a product of the World Wide Web Consortium.
+
+Package: libtidy-html5
+Section: libs
+Architecture: any
+Depends: ${misc:Depends}, ${shlibs:Depends}
+Description: HTML syntax checker and reformatter - library
+ Corrects markup in a way compliant with the latest standards, and
+ optimal for the popular browsers.  It has a comprehensive knowledge
+ of the attributes defined in the HTML recommendations from W3C,
+ and understands the US ASCII, ISO Latin-1, UTF-8 and the ISO 2022
+ family of 7-bit encodings.  In the output:
+ .
+  * HTML entity names for characters are used when appropriate.
+  * Missing attribute quotes are added, and mismatched quotes found.
+  * Tags lacking a terminating '>' are spotted.
+  * Proprietary elements are recognized and reported as such.
+  * The page is reformatted, from a choice of indentation styles.
+ .
+ Tidy is a product of the World Wide Web Consortium.
+
+Package: libtidy-html5-dev
+Section: libdevel
+Architecture: any
+Depends: libtidy-html5 (= ${binary:Version}), ${misc:Depends}, ${shlibs:Depends}
+Description: HTML syntax checker and reformatter - development
+ Corrects markup in a way compliant with the latest standards, and
+ optimal for the popular browsers.  It has a comprehensive knowledge
+ of the attributes defined in the HTML recommendations from W3C,
+ and understands the US ASCII, ISO Latin-1, UTF-8 and the ISO 2022
+ family of 7-bit encodings.  In the output:
+ .
+  * HTML entity names for characters are used when appropriate.
+  * Missing attribute quotes are added, and mismatched quotes found.
+  * Tags lacking a terminating '>' are spotted.
+  * Proprietary elements are recognized and reported as such.
+  * The page is reformatted, from a choice of indentation styles.
+ .
+ Tidy is a product of the World Wide Web Consortium.
+
+Package: tidy-html5-doc
+Section: doc
+Architecture: all
+Depends: ${misc:Depends}, ${shlibs:Depends}
+Suggests: tidy-html5
+Description: HTML syntax checker and reformatter - documentation
+ Corrects markup in a way compliant with the latest standards, and
+ optimal for the popular browsers.  It has a comprehensive knowledge
+ of the attributes defined in the HTML recommendations from W3C,
+ and understands the US ASCII, ISO Latin-1, UTF-8 and the ISO 2022
+ family of 7-bit encodings.  In the output:
+ .
+  * HTML entity names for characters are used when appropriate.
+  * Missing attribute quotes are added, and mismatched quotes found.
+  * Tags lacking a terminating '>' are spotted.
+  * Proprietary elements are recognized and reported as such.
+  * The page is reformatted, from a choice of indentation styles.
+ .
+ Tidy is a product of the World Wide Web Consortium.

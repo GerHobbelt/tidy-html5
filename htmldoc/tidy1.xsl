@@ -1,7 +1,7 @@
 <?xml version="1.0"?>
 <!--
-    For generating the `tidy.1` man page from the
-    output of `tidy -xml-help` and `tidy -xml-config`
+    For generating the `tidy-html5.1` man page from the
+    output of `tidy-html5 -xml-help` and `tidy-html5 -xml-config`
 
     (c) 2005-2007 (W3C) MIT, ERCIM, Keio University
     See tidy.h for the copyright notice.
@@ -18,13 +18,13 @@
 
 <!--
     The default template match is to the document passed on the
-    command line to the XSLT processor, currently "tidy-help.xml".
+    command line to the XSLT processor, currently "tidy-html5-help.xml".
     For the detailed config options section however, the template
-    match is to the file "tidy-config.xml".  This is captured in
+    match is to the file "tidy-html5-config.xml".  This is captured in
     the $CONFIG variable, declared here:
 -->
 
-<xsl:variable name="CONFIG" select="document('tidy-config.xml')"/>
+<xsl:variable name="CONFIG" select="document('tidy-html5-config.xml')"/>
 
 
 <!-- Main Template: -->
@@ -52,9 +52,9 @@
 .\" disable justification (adjust text to left margin only)
 .ad l
 .SH NAME
-\fBtidy\fR - check, correct, and pretty-print HTML(5) files
+\fBtidy-html5\fR - check, correct, and pretty-print HTML(5) files
 .SH SYNOPSIS
-\fBtidy\fR [option ...] [file ...] [option ...] [file ...]
+\fBtidy-html5\fR [option ...] [file ...] [option ...] [file ...]
 .SH DESCRIPTION
 Tidy reads HTML(5), XHTML(5) and XML files and writes cleaned-up markup.  For HTML variants, it detects, reports, and corrects many common coding errors and strives to produce visually equivalent markup that is both conformant to the HTML specifications and that works in most browsers.
 .LP
@@ -71,11 +71,11 @@ Use \fB--\fR\fIoptionX valueX\fR for the detailed configuration option "optionX"
 Input/Output default to stdin/stdout respectively. Single letter options apart from \fB-f\fR and \fB-o\fR may be combined as in:
 .LP
 .in 1i
-\fBtidy -f errs.txt -imu foo.html\fR
+\fBtidy-html5 -f errs.txt -imu foo.html\fR
 .SH ENVIRONMENT
 .TP
 .B HTML_TIDY
-Name of the default configuration file.  This should be an absolute path, since you will probably invoke \fBtidy\fR from different directories.  The value of HTML_TIDY will be parsed after the compiled-in default (defined with -DTIDY_CONFIG_FILE), but before any of the files specified using \fB-config\fR.
+Name of the default configuration file.  This should be an absolute path, since you will probably invoke \fBtidy-html5\fR from different directories.  The value of HTML_TIDY will be parsed after the compiled-in default (defined with -DTIDY_CONFIG_FILE), but before any of the files specified using \fB-config\fR.
 .SH "EXIT STATUS"
 .IP 0
 All input files were processed successfully.
@@ -90,11 +90,11 @@ There were errors.
 .SH ______________________________
 .SH "  "
 .SH "DETAILED CONFIGURATION OPTIONS"
-This section describes the Detailed (i.e., "expanded") Options, which may be specified by preceding each option with \fB--\fR at the command line, followed by its desired value, OR by placing the options and values in a configuration file, and telling tidy to read that file with the \fB-config\fR standard option.
+This section describes the Detailed (i.e., "expanded") Options, which may be specified by preceding each option with \fB--\fR at the command line, followed by its desired value, OR by placing the options and values in a configuration file, and telling tidy-html5 to read that file with the \fB-config\fR standard option.
 .SH SYNOPSIS
-\fBtidy --\fR\fIoption1 \fRvalue1 \fB--\fIoption2 \fRvalue2 [standard options ...]
+\fBtidy-html5 --\fR\fIoption1 \fRvalue1 \fB--\fIoption2 \fRvalue2 [standard options ...]
 .br
-\fBtidy -config \fIconfig-file \fR[standard options ...]
+\fBtidy-html5 -config \fIconfig-file \fR[standard options ...]
 .SH WARNING
 The options detailed here do not include the "standard" command-line options (i.e., those preceded by a single '\fB-\fR') described above in the first section of this man page.
 .SH DESCRIPTION
@@ -232,9 +232,9 @@ For each option in one of the 3 categories/classes, provide its
     Note that any templates called implicitly or explicitly
     from the "config-detail" template below will match on
     the document referred to by the $CONFIG variable, i.e.,
-    the file "tidy-config.xml", created by running
+    the file "tidy-html5-config.xml", created by running
 
-        tidy -xml-config > tidy-config.xml
+        tidy-html5 -xml-config > tidy-html5-config.xml
 
     The $CONFIG variable is set at the top level of this
     stylesheet.

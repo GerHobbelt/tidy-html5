@@ -1,0 +1,23 @@
+Building a new tarball from upstream cvs
+----------------------------------------
+
+* update tidy from cvs
+cd tidy
+cvs update
+cd ..
+
+* make a copy
+cp -a tidy tidy-YYYYMMDDcvs
+
+* setup the autoconf scripts
+cd tidy-YYYYMMDDcvs
+/bin/sh build/gnuauto/setup.sh
+
+* clean up the source directory
+rm -rf build
+rm -rf autom4te.cache
+find -name "CVS*" -exec rm -rf {} \;
+cd ..
+
+* build the tarball
+tar czf tidy_YYYYMMDDcvs.orig.tar.gz tidy-YYYYMMDDcvs

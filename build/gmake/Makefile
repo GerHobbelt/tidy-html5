@@ -49,11 +49,11 @@
 
 SHELL=/bin/sh
 
-PROJECT=tidy
+PROJECT=tidy-html5
 
 # Installation variables.  Spaces OK, only dir create and file copy operations.
-runinst_prefix=/usr/local
-devinst_prefix=/usr/local
+runinst_prefix=${DESTDIR}/usr
+devinst_prefix=${DESTDIR}/usr
 
 bininst = ${runinst_prefix}/bin
 libinst = ${devinst_prefix}/lib
@@ -126,10 +126,10 @@ XSLTPROC = xsltproc
 
 EXES = $(BINDIR)/$(PROJECT) $(BINDIR)/tab2space
 
-DOCS = $(DOCDIR)/quickref.html $(DOCDIR)/tidy.1
+DOCS = $(DOCDIR)/quickref.html $(DOCDIR)/tidy-html5.1
 
-CONFIGXML = $(DOCDIR)/tidy-config.xml
-HELPXML = $(DOCDIR)/tidy-help.xml
+CONFIGXML = $(DOCDIR)/tidy-html5-config.xml
+HELPXML = $(DOCDIR)/tidy-html5-help.xml
 
 OBJFILES=\
         $(OBJDIR)/access$(OBJSUF)     $(OBJDIR)/attrs$(OBJSUF)      $(OBJDIR)/istack$(OBJSUF) \
@@ -197,7 +197,7 @@ $(CONFIGXML): $(BINDIR)/$(PROJECT)
 $(DOCDIR)/quickref.html: $(DOCDIR)/quickref-html.xsl $(CONFIGXML)
 	$(XSLTPROC) -o $@ $(DOCDIR)/quickref-html.xsl $(CONFIGXML)
 
-$(DOCDIR)/tidy.1: $(DOCDIR)/tidy1.xsl $(HELPXML) $(CONFIGXML)
+$(DOCDIR)/tidy-html5.1: $(DOCDIR)/tidy1.xsl $(HELPXML) $(CONFIGXML)
 	$(XSLTPROC) -o $@ $(DOCDIR)/tidy1.xsl $(HELPXML)
 
 debug:
@@ -224,8 +224,8 @@ installexes: $(EXES)
 	if [ ! -d "$(bininst)" ]; then mkdir -p "$(bininst)"; fi
 	cp -f $(EXES) "$(bininst)/"
 
-installmanpage: $(DOCDIR)/tidy.1
+installmanpage: $(DOCDIR)/tidy-html5.1
 	if [ ! -d "$(maninst)/man1" ]; then mkdir -p "$(maninst)/man1"; fi;
-	cp -f $(DOCDIR)/tidy.1 "$(maninst)/man1/tidy.1";
+	cp -f $(DOCDIR)/tidy-html5.1 "$(maninst)/man1/tidy-html5.1";
 
 install: installhdrs installib installexes installmanpage
