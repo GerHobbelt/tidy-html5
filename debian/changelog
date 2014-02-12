@@ -1,6 +1,6 @@
-tidy-html5 (20140206git) precise; urgency=low
+tidy-html5 (20140212git) precise; urgency=low
 
-  * Experimental HTML5 version 
+  * Experimental HTML5 version
 
  -- Eberhard Beilharz <eb1@sil.org>  Thu, 30 Jan 2014 16:16:47 +0100
 
@@ -99,7 +99,7 @@ tidy (20051018-1) unstable; urgency=low
 
 tidy (20050415-1) unstable; urgency=low
 
-  * New upstream release 
+  * New upstream release
 
  -- Jason Thomas <jason@debian.org>  Wed, 20 Apr 2005 11:22:49 +1000
 
@@ -125,7 +125,7 @@ tidy (20040720-1) unstable; urgency=low
 
 tidy (20040312-2) unstable; urgency=low
 
-  * debian/libtidy0.install: add debian/tmp/usr/lib/libtidy.so symlink 
+  * debian/libtidy0.install: add debian/tmp/usr/lib/libtidy.so symlink
     (closes: #247488)
 
  -- Jason Thomas <jason@debian.org>  Sat, 15 May 2004 14:47:54 +1000
@@ -136,19 +136,19 @@ tidy (20040312-1) unstable; urgency=low
   * debian/rules: changed to use cdbs
   * debian/control: build depends cdbs
   * debian/makeclean: removed this as we now setup up the autoconf build
-    system before packaging. 
+    system before packaging.
 
  -- Jason Thomas <jason@debian.org>  Wed, 14 Apr 2004 23:55:38 +1000
 
 tidy (20031001-3) unstable; urgency=low
 
-  * debian/control: corrected sections for libtidy-dev and libtidy0 
+  * debian/control: corrected sections for libtidy-dev and libtidy0
 
  -- Jason Thomas <jason@debian.org>  Wed, 10 Dec 2003 10:22:25 +1100
 
 tidy (20031001-2) unstable; urgency=low
 
-  * FTBS, added missing build-depends, autoconf, automake, libtool, perl 
+  * FTBS, added missing build-depends, autoconf, automake, libtool, perl
     (closes: #221378)
   * debian/rules: changed debian/automake to 'perl debian/automake'
 
@@ -166,7 +166,7 @@ tidy (20031001-1) unstable; urgency=low
 
 tidy (20030716-3) unstable; urgency=low
 
-  * debian/control: Suggests tidy-doc 
+  * debian/control: Suggests tidy-doc
     (closes: #204069)
 
  -- Jason Thomas <jason@debian.org>  Mon, 25 Aug 2003 10:35:18 +1000
@@ -184,7 +184,7 @@ tidy (20030716-1) unstable; urgency=low
   * Move docs to tidy-docs package.
   * Removed unneeded patches 03copyright.patch 04indent.patch
   * Updated config patch
-  * Added mention of tidy-doc package to man page, and README.Debian 
+  * Added mention of tidy-doc package to man page, and README.Debian
 
  -- Jason Thomas <jason@debian.org>  Wed, 30 Jul 2003 11:16:18 +1000
 
@@ -196,7 +196,7 @@ tidy (20030305-1) unstable; urgency=low
 
 tidy (20030208-2) unstable; urgency=low
 
-  * Added temporary patch to fix indentation problem 
+  * Added temporary patch to fix indentation problem
 
  -- Jason Thomas <jason@debian.org>  Tue, 18 Feb 2003 09:58:35 +1100
 
