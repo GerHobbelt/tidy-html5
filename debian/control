@@ -3,7 +3,7 @@ Section: web
 Priority: optional
 Maintainer: Eberhard Beilharz <eb1@sil.org>
 Build-Depends: debhelper (>= 8), libtool, automake, autoconf, perl, xsltproc
-Standards-Version: 3.9.3
+Standards-Version: 3.9.5
 Homepage: http://w3c.github.io/tidy-html5/
 
 Package: tidy-html5
