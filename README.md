@@ -1,42 +1,37 @@
-# HTML Tidy for HTML5 (experimental)
+﻿# HTML Tidy with HTML5 support
 
-This repo is an experimental fork of the code from [tidy.sourceforge.net][1].
-This source code in this version supports processing of HTML5 documents. The
-changes for HTML5 support started from a [patch developed by Björn Höhrmann][2].
+This repository consists of the stable and development branches of HTML Tidy.
 
-   [1]: http://tidy.sourceforge.net
+ - branch **develop-\*\*\*** consists of the current development and release candidate
+   for **HTML Tidy**. Release Candidates can be identified with git tags.
 
-   [2]: http://lists.w3.org/Archives/Public/www-archive/2011Nov/0007.html
+ - branch **master** consists of the current, stable release of **HTML Tidy**. 
 
-For more information, see [w3c.github.com/tidy-html5][3]
 
-   [3]: http://w3c.github.com/tidy-html5/
+## Build the tidy library and command line tool
 
-## Building the tidy command-line tool
+  1. `cd build/cmake`
 
-For Linux/BSD/OSX platforms, you can build and install the `tidy` command-line
-tool from the source code using the following steps.
+  2. `cmake ../.. [-DCMAKE_INSTALL_PREFIX=/path/for/install]`
 
-  1. `make -C build/gmake/`
+  3. Windows:  `cmake --build . --config Release`  
+     Unix/OS X: `make`
 
-  2. `make install -C build/gmake/`
+  4. Install, if desired:  
+     Windows: `cmake --build . --config Release --target INSTALL`  
+     Unix/OS X: `[sudo] make install`
 
-Note that you will either need to run `make install` as root, or with `sudo make
-install`.
 
-On Windows, open and compile the project in build/msvc or build/msvc2010 with Visual Studio.
+## History
 
-## Building the libtidy shared library
+This repository should be considered canonical for HTML Tidy as of 2015-January-15.
 
-For Linux/BSD/OSX platforms, you can build and install the `tidylib` shared
-library (for use in building other applications) from the source code using the
-following steps.
+ - This repository originally transferred from [w3c.github.com/tidy-html5][1].
+ 
+ - First moved to Github from [tidy.sourceforge.net][2].
 
-  1. sh build/gnuauto/setup.sh && ./configure && make
 
-  2. make install
+   [1]: http://w3c.github.com/tidy-html5/
 
-Note that you will either need to run `make install` as root, or with `sudo make
-install`.
+   [2]: http://tidy.sourceforge.net
 
-On Windows, open and compile the project in build/msvc or build/msvc2010 with Visual Studio.

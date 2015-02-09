@@ -15,6 +15,9 @@
 #include "message.h"
 #include "tmbstr.h"
 #include "utf8.h"
+#if !defined(NDEBUG) && defined(_MSC_VER)
+#include "sprtf.h"
+#endif
 
 /* used to point to Web Accessibility Guidelines */
 #define ACCESS_URL  "http://www.w3.org/WAI/GL"
@@ -30,6 +33,12 @@ ctmbstr TY_(ReleaseDate)(void)
 {
   return TY_(release_date);
 }
+
+ctmbstr tidyLibraryVersion(void)
+{
+  return TY_(library_version);
+}
+
 
 static struct _msgfmt
 {
@@ -101,6 +110,10 @@ static struct _msgfmt
   { NESTED_QUOTATION,             "nested q elements, possible typo."                                       }, /* Warning */
   { OBSOLETE_ELEMENT,             "replacing obsolete element %s by %s"                                     }, /* Warning */
   { COERCE_TO_ENDTAG_WARN,        "<%s> is probably intended as </%s>"                                      }, /* Warning */
+  /* HTML5 */
+  { REMOVED_HTML5,                "%s element removed from HTML5"                                           }, /* Warning */
+  { BAD_BODY_HTML5,               "Found attribute on body that is obsolete in HTML5. Use CSS"              }, /* Warning */
+  { BAD_ALIGN_HTML5,              "The align attribute on the %s element is obsolete, Use CSS"              }, /* Wanring */
 
 /* ReportNotice */
   { TRIM_EMPTY_ELEMENT,           "trimming empty %s"                                                       }, /* Notice */
@@ -1028,11 +1041,18 @@ static void messagePos( TidyDocImpl* doc, TidyReportLevel level,
 
     if ( go )
     {
+        va_list args_copy;
+        va_copy(args_copy, args);
         TY_(tmbvsnprintf)(messageBuf, sizeMessageBuf, msg, args);
         if ( doc->mssgFilt )
         {
             TidyDoc tdoc = tidyImplToDoc( doc );
             go = doc->mssgFilt( tdoc, level, line, col, messageBuf );
+        }
+        if ( doc->mssgFilt2 )
+        {
+            TidyDoc tdoc = tidyImplToDoc( doc );
+            go = go | doc->mssgFilt2( tdoc, level, line, col, msg, args_copy );
         }
     }
 
@@ -1044,17 +1064,25 @@ static void messagePos( TidyDocImpl* doc, TidyReportLevel level,
         if ( line > 0 && col > 0 )
         {
             ReportPosition(doc, line, col, buf, sizeBuf);
+#if !defined(NDEBUG) && defined(_MSC_VER)
+            SPRTF("%s",buf);
+#endif
             for ( cp = buf; *cp; ++cp )
                 TY_(WriteChar)( *cp, doc->errout );
         }
 
         LevelPrefix( level, buf, sizeBuf );
+#if !defined(NDEBUG) && defined(_MSC_VER)
+            SPRTF("%s",buf);
+            SPRTF("%s\n",messageBuf);
+#else
         for ( cp = buf; *cp; ++cp )
             TY_(WriteChar)( *cp, doc->errout );
 
         for ( cp = messageBuf; *cp; ++cp )
             TY_(WriteChar)( *cp, doc->errout );
         TY_(WriteChar)( '\n', doc->errout );
+#endif
         TidyDocFree(doc, buf);
     }
     TidyDocFree(doc, messageBuf);
@@ -1136,15 +1164,21 @@ void tidy_out( TidyDocImpl* doc, ctmbstr msg, ... )
     {
         ctmbstr cp;
         enum { sizeBuf=2048 };
-        char *buf = TidyDocAlloc(doc,sizeBuf);
+        char *buf = (char *)TidyDocAlloc(doc,sizeBuf);
 
         va_list args;
         va_start( args, msg );
         TY_(tmbvsnprintf)(buf, sizeBuf, msg, args);
         va_end( args );
 
+#if !defined(NDEBUG) && defined(_MSC_VER)
+        add_std_out(0);
+#endif
         for ( cp=buf; *cp; ++cp )
           TY_(WriteChar)( *cp, doc->errout );
+#if !defined(NDEBUG) && defined(_MSC_VER)
+        add_std_out(1);
+#endif
         TidyDocFree(doc, buf);
     }
 }
@@ -1454,6 +1488,9 @@ void TY_(ReportWarning)(TidyDocImpl* doc, Node *element, Node *node, uint code)
         break;
 
     case NESTED_EMPHASIS:
+    case REMOVED_HTML5:
+    case BAD_BODY_HTML5:
+    case BAD_ALIGN_HTML5:
         messageNode(doc, TidyWarning, rpt, fmt, nodedesc);
         break;
     case COERCE_TO_ENDTAG_WARN:
@@ -1580,6 +1617,9 @@ void TY_(ReportError)(TidyDocImpl* doc, Node *element, Node *node, uint code)
     case REPLACING_UNEX_ELEMENT:
         TagToString(element, elemdesc, sizeof(elemdesc));
         messageNode(doc, TidyWarning, rpt, fmt, elemdesc, nodedesc);
+        break;
+    case REMOVED_HTML5:
+        messageNode(doc, TidyError, rpt, fmt, nodedesc);
         break;
     }
 }
@@ -1828,12 +1868,11 @@ void TY_(NeedsAuthorIntervention)( TidyDocImpl* doc )
 void TY_(GeneralInfo)( TidyDocImpl* doc )
 {
     if (!cfgBool(doc, TidyShowInfo)) return;
-    tidy_out(doc, "About this fork of Tidy: http://w3c.github.com/tidy-html5/\n");
-    tidy_out(doc, "Bug reports and comments: https://github.com/w3c/tidy-html5/issues/\n");
-    tidy_out(doc, "Or send questions and comments to html-tidy@w3.org\n");
+    tidy_out(doc, "About HTML Tidy: https://github.com/htacg/tidy-html5/tree/develop-500\n");
+    tidy_out(doc, "Bug reports and comments: https://github.com/htacg/tidy-html5/issues\n");
+    tidy_out(doc, "Or send questions and comments to: https://lists.w3.org/Archives/Public/public-htacg/\n");
     tidy_out(doc, "Latest HTML specification: http://dev.w3.org/html5/spec-author-view/\n");
-    tidy_out(doc, "HTML language reference: http://dev.w3.org/html5/markup/\n");
-    tidy_out(doc, "Validate your HTML5 documents: http://validator.w3.org/nu/\n");
+    tidy_out(doc, "Validate your HTML documents: http://validator.w3.org/nu/\n");
     tidy_out(doc, "Lobby your company to join the W3C: http://www.w3.org/Consortium\n");
 }
 

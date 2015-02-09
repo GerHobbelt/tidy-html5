@@ -10,7 +10,9 @@
 #include "tidy-int.h"
 #include "message.h"
 #include "tmbstr.h"
-
+#if !defined(NDEBUG) && defined(_MSC_VER)
+#include "sprtf.h"
+#endif
 /* Attribute checking methods */
 static CheckAttribs CheckIMG;
 static CheckAttribs CheckLINK;
@@ -106,6 +108,7 @@ static CheckAttribs CheckHTML;
 #define VERS_ELEM_STYLE      (xxxx|HT32|H40T|H41T|X10T|H40F|H41F|X10F|H40S|H41S|X10S|XH11|xxxx|HT50|XH50)
 #define VERS_ELEM_SUB        (xxxx|HT32|H40T|H41T|X10T|H40F|H41F|X10F|H40S|H41S|X10S|XH11|xxxx|HT50|XH50)
 #define VERS_ELEM_SUP        (xxxx|HT32|H40T|H41T|X10T|H40F|H41F|X10F|H40S|H41S|X10S|XH11|xxxx|HT50|XH50)
+#define VERS_ELEM_SVG        (xxxx|xxxx|xxxx|H41T|X10T|xxxx|H41F|X10F|xxxx|H41S|X10S|XH11|xxxx|HT50|XH50)
 #define VERS_ELEM_TABLE      (xxxx|HT32|H40T|H41T|X10T|H40F|H41F|X10F|H40S|H41S|X10S|XH11|XB10|HT50|XH50)
 #define VERS_ELEM_TBODY      (xxxx|xxxx|H40T|H41T|X10T|H40F|H41F|X10F|H40S|H41S|X10S|XH11|xxxx|HT50|XH50)
 #define VERS_ELEM_TD         (xxxx|HT32|H40T|H41T|X10T|H40F|H41F|X10F|H40S|H41S|X10S|XH11|XB10|HT50|XH50)
@@ -124,10 +127,12 @@ static CheckAttribs CheckHTML;
 #define VERS_ELEM_ARTICLE    (xxxx|xxxx|xxxx|xxxx|xxxx|xxxx|xxxx|xxxx|xxxx|xxxx|xxxx|xxxx|xxxx|HT50|XH50)
 #define VERS_ELEM_ASIDE      (xxxx|xxxx|xxxx|xxxx|xxxx|xxxx|xxxx|xxxx|xxxx|xxxx|xxxx|xxxx|xxxx|HT50|XH50)
 #define VERS_ELEM_AUDIO      (xxxx|xxxx|xxxx|xxxx|xxxx|xxxx|xxxx|xxxx|xxxx|xxxx|xxxx|xxxx|xxxx|HT50|XH50)
+#define VERS_ELEM_BDI        (xxxx|xxxx|xxxx|xxxx|xxxx|xxxx|xxxx|xxxx|xxxx|xxxx|xxxx|xxxx|xxxx|HT50|XH50)
 #define VERS_ELEM_CANVAS     (xxxx|xxxx|xxxx|xxxx|xxxx|xxxx|xxxx|xxxx|xxxx|xxxx|xxxx|xxxx|xxxx|HT50|XH50)
 #define VERS_ELEM_COMMAND    (xxxx|xxxx|xxxx|xxxx|xxxx|xxxx|xxxx|xxxx|xxxx|xxxx|xxxx|xxxx|xxxx|HT50|XH50)
 #define VERS_ELEM_DATALIST   (xxxx|xxxx|xxxx|xxxx|xxxx|xxxx|xxxx|xxxx|xxxx|xxxx|xxxx|xxxx|xxxx|HT50|XH50)
 #define VERS_ELEM_DETAILS    (xxxx|xxxx|xxxx|xxxx|xxxx|xxxx|xxxx|xxxx|xxxx|xxxx|xxxx|xxxx|xxxx|HT50|XH50)
+#define VERS_ELEM_DIALOG     (xxxx|xxxx|xxxx|xxxx|xxxx|xxxx|xxxx|xxxx|xxxx|xxxx|xxxx|xxxx|xxxx|HT50|XH50)
 #define VERS_ELEM_EMBED      (xxxx|xxxx|xxxx|xxxx|xxxx|xxxx|xxxx|xxxx|xxxx|xxxx|xxxx|xxxx|xxxx|HT50|XH50)
 #define VERS_ELEM_FIGCAPTION (xxxx|xxxx|xxxx|xxxx|xxxx|xxxx|xxxx|xxxx|xxxx|xxxx|xxxx|xxxx|xxxx|HT50|XH50)
 #define VERS_ELEM_FIGURE     (xxxx|xxxx|xxxx|xxxx|xxxx|xxxx|xxxx|xxxx|xxxx|xxxx|xxxx|xxxx|xxxx|HT50|XH50)
@@ -135,7 +140,10 @@ static CheckAttribs CheckHTML;
 #define VERS_ELEM_HEADER     (xxxx|xxxx|xxxx|xxxx|xxxx|xxxx|xxxx|xxxx|xxxx|xxxx|xxxx|xxxx|xxxx|HT50|XH50)
 #define VERS_ELEM_HGROUP     (xxxx|xxxx|xxxx|xxxx|xxxx|xxxx|xxxx|xxxx|xxxx|xxxx|xxxx|xxxx|xxxx|HT50|XH50)
 #define VERS_ELEM_KEYGEN     (xxxx|xxxx|xxxx|xxxx|xxxx|xxxx|xxxx|xxxx|xxxx|xxxx|xxxx|xxxx|xxxx|HT50|XH50)
+#define VERS_ELEM_MAIN       (xxxx|xxxx|xxxx|xxxx|xxxx|xxxx|xxxx|xxxx|xxxx|xxxx|xxxx|xxxx|xxxx|HT50|XH50)
 #define VERS_ELEM_MARK       (xxxx|xxxx|xxxx|xxxx|xxxx|xxxx|xxxx|xxxx|xxxx|xxxx|xxxx|xxxx|xxxx|HT50|XH50)
+#define VERS_ELEM_MENUITEM   (xxxx|xxxx|xxxx|xxxx|xxxx|xxxx|xxxx|xxxx|xxxx|xxxx|xxxx|xxxx|xxxx|HT50|XH50)
+#define VERS_ELEM_KEYGEN     (xxxx|xxxx|xxxx|xxxx|xxxx|xxxx|xxxx|xxxx|xxxx|xxxx|xxxx|xxxx|xxxx|HT50|XH50)
 #define VERS_ELEM_METER      (xxxx|xxxx|xxxx|xxxx|xxxx|xxxx|xxxx|xxxx|xxxx|xxxx|xxxx|xxxx|xxxx|HT50|XH50)
 #define VERS_ELEM_NAV        (xxxx|xxxx|xxxx|xxxx|xxxx|xxxx|xxxx|xxxx|xxxx|xxxx|xxxx|xxxx|xxxx|HT50|XH50)
 #define VERS_ELEM_OUTPUT     (xxxx|xxxx|xxxx|xxxx|xxxx|xxxx|xxxx|xxxx|xxxx|xxxx|xxxx|xxxx|xxxx|HT50|XH50)
@@ -153,7 +161,7 @@ static const Dict tag_defs[] =
   { TidyTag_UNKNOWN,    "unknown!",   VERS_UNKNOWN,         NULL,                       (0),                                           NULL,          NULL           },
 
   /* W3C defined elements */
-  { TidyTag_A,          "a",          VERS_ELEM_A,          &TY_(W3CAttrsFor_A)[0],          (CM_INLINE|CM_BLOCK|CM_MIXED),                 TY_(ParseBlock),    NULL           },
+  { TidyTag_A,          "a",          VERS_ELEM_A,          &TY_(W3CAttrsFor_A)[0],          (CM_INLINE|CM_BLOCK|CM_MIXED),                 TY_(ParseInline),   NULL           },
   { TidyTag_ABBR,       "abbr",       VERS_ELEM_ABBR,       &TY_(W3CAttrsFor_ABBR)[0],       (CM_INLINE),                                   TY_(ParseInline),   NULL           },
   { TidyTag_ACRONYM,    "acronym",    VERS_ELEM_ACRONYM,    &TY_(W3CAttrsFor_ACRONYM)[0],    (CM_INLINE),                                   TY_(ParseInline),   NULL           },
   { TidyTag_ADDRESS,    "address",    VERS_ELEM_ADDRESS,    &TY_(W3CAttrsFor_ADDRESS)[0],    (CM_BLOCK),                                    TY_(ParseBlock),    NULL           },
@@ -184,6 +192,7 @@ static const Dict tag_defs[] =
   { TidyTag_EM,         "em",         VERS_ELEM_EM,         &TY_(W3CAttrsFor_EM)[0],         (CM_INLINE),                                   TY_(ParseInline),   NULL           },
   { TidyTag_FIELDSET,   "fieldset",   VERS_ELEM_FIELDSET,   &TY_(W3CAttrsFor_FIELDSET)[0],   (CM_BLOCK),                                    TY_(ParseBlock),    NULL           },
   { TidyTag_FONT,       "font",       VERS_ELEM_FONT,       &TY_(W3CAttrsFor_FONT)[0],       (CM_INLINE),                                   TY_(ParseInline),   NULL           },
+  /* HTML5 Form Elements has several new elements and attributes - datalist keygen output */
   { TidyTag_FORM,       "form",       VERS_ELEM_FORM,       &TY_(W3CAttrsFor_FORM)[0],       (CM_BLOCK),                                    TY_(ParseBlock),    NULL           },
   { TidyTag_FRAME,      "frame",      VERS_ELEM_FRAME,      &TY_(W3CAttrsFor_FRAME)[0],      (CM_FRAMES|CM_EMPTY),                          TY_(ParseEmpty),    NULL           },
   { TidyTag_FRAMESET,   "frameset",   VERS_ELEM_FRAMESET,   &TY_(W3CAttrsFor_FRAMESET)[0],   (CM_HTML|CM_FRAMES),                           TY_(ParseFrameSet), NULL           },
@@ -209,7 +218,7 @@ static const Dict tag_defs[] =
   { TidyTag_LINK,       "link",       VERS_ELEM_LINK,       &TY_(W3CAttrsFor_LINK)[0],       (CM_HEAD|CM_BLOCK|CM_EMPTY),                   TY_(ParseEmpty),    CheckLINK      },
   { TidyTag_LISTING,    "listing",    VERS_ELEM_LISTING,    &TY_(W3CAttrsFor_LISTING)[0],    (CM_BLOCK|CM_OBSOLETE),                        TY_(ParsePre),      NULL           },
   { TidyTag_MAP,        "map",        VERS_ELEM_MAP,        &TY_(W3CAttrsFor_MAP)[0],        (CM_INLINE),                                   TY_(ParseBlock),    NULL           },
-  { TidyTag_MENU,       "menu",       VERS_ELEM_MENU,       &TY_(W3CAttrsFor_MENU)[0],       (CM_BLOCK|CM_OBSOLETE),                        TY_(ParseList),     NULL           },
+  // { TidyTag_MENU,       "menu",       VERS_ELEM_MENU,       &TY_(W3CAttrsFor_MENU)[0],       (CM_BLOCK|CM_OBSOLETE),                        TY_(ParseList),     NULL           },
   { TidyTag_META,       "meta",       VERS_ELEM_META,       &TY_(W3CAttrsFor_META)[0],       (CM_HEAD|CM_BLOCK|CM_EMPTY),                   TY_(ParseEmpty),    NULL           },
   { TidyTag_NOFRAMES,   "noframes",   VERS_ELEM_NOFRAMES,   &TY_(W3CAttrsFor_NOFRAMES)[0],   (CM_BLOCK|CM_FRAMES),                          TY_(ParseNoFrames), NULL           },
   { TidyTag_NOSCRIPT,   "noscript",   VERS_ELEM_NOSCRIPT,   &TY_(W3CAttrsFor_NOSCRIPT)[0],   (CM_HEAD|CM_BLOCK|CM_INLINE|CM_MIXED),         TY_(ParseBlock),    NULL           },
@@ -239,6 +248,7 @@ static const Dict tag_defs[] =
   { TidyTag_STYLE,      "style",      VERS_ELEM_STYLE,      &TY_(W3CAttrsFor_STYLE)[0],      (CM_HEAD|CM_BLOCK),                            TY_(ParseScript),   NULL           },
   { TidyTag_SUB,        "sub",        VERS_ELEM_SUB,        &TY_(W3CAttrsFor_SUB)[0],        (CM_INLINE),                                   TY_(ParseInline),   NULL           },
   { TidyTag_SUP,        "sup",        VERS_ELEM_SUP,        &TY_(W3CAttrsFor_SUP)[0],        (CM_INLINE),                                   TY_(ParseInline),   NULL           },
+  { TidyTag_SVG,        "svg",        VERS_ELEM_SVG,        &TY_(W3CAttrsFor_SVG)[0],        (CM_INLINE|CM_BLOCK|CM_MIXED),                 TY_(ParseNamespace),NULL           },
   { TidyTag_TABLE,      "table",      VERS_ELEM_TABLE,      &TY_(W3CAttrsFor_TABLE)[0],      (CM_BLOCK),                                    TY_(ParseTableTag), CheckTABLE     },
   { TidyTag_TBODY,      "tbody",      VERS_ELEM_TBODY,      &TY_(W3CAttrsFor_TBODY)[0],      (CM_TABLE|CM_ROWGRP|CM_OPT),                   TY_(ParseRowGroup), NULL           },
   { TidyTag_TD,         "td",         VERS_ELEM_TD,         &TY_(W3CAttrsFor_TD)[0],         (CM_ROW|CM_OPT|CM_NO_INDENT),                  TY_(ParseBlock),    NULL           },
@@ -276,10 +286,13 @@ static const Dict tag_defs[] =
   { TidyTag_ARTICLE,     "article",      VERS_ELEM_ARTICLE,     &TY_(W3CAttrsFor_ARTICLE)[0],     (CM_BLOCK),                    TY_(ParseBlock),     NULL           },
   { TidyTag_ASIDE,       "aside",        VERS_ELEM_ASIDE,       &TY_(W3CAttrsFor_ASIDE)[0],       (CM_BLOCK),                    TY_(ParseBlock),     NULL           },
   { TidyTag_AUDIO,       "audio",        VERS_ELEM_AUDIO,       &TY_(W3CAttrsFor_AUDIO)[0],       (CM_BLOCK|CM_INLINE),          TY_(ParseBlock),     NULL           },
-  { TidyTag_CANVAS,      "canvas",       VERS_ELEM_CANVAS,      &TY_(W3CAttrsFor_CANVAS)[0],      (CM_INLINE),                   TY_(ParseInline),    NULL           },
+  { TidyTag_BDI,         "bdi",          VERS_ELEM_BDI,         &TY_(W3CAttrsFor_BDI)[0],         (CM_BLOCK),                    TY_(ParseBlock),     NULL           },
+  { TidyTag_CANVAS,      "canvas",       VERS_ELEM_CANVAS,      &TY_(W3CAttrsFor_CANVAS)[0],      (CM_BLOCK),                    TY_(ParseBlock),     NULL           },
   { TidyTag_COMMAND,     "command",      VERS_ELEM_COMMAND,     &TY_(W3CAttrsFor_COMMAND)[0],     (CM_HEAD|CM_INLINE|CM_EMPTY),  TY_(ParseEmpty),     NULL           },
-  { TidyTag_DATALIST,    "datalist",     VERS_ELEM_DATALIST,    &TY_(W3CAttrsFor_DATALIST)[0],    (CM_INLINE),                   TY_(ParseInline),    NULL           },
+  { TidyTag_DATALIST,    "datalist",     VERS_ELEM_DATALIST,    &TY_(W3CAttrsFor_DATALIST)[0],    (CM_INLINE|CM_FIELD),          TY_(ParseDatalist),  NULL           },
+  //{ TidyTag_DATALIST,    "datalist",     VERS_ELEM_DATALIST,    &TY_(W3CAttrsFor_DATALIST)[0],    (CM_FIELD),                   TY_(ParseInline),    NULL           },
   { TidyTag_DETAILS,     "details",      VERS_ELEM_DETAILS,     &TY_(W3CAttrsFor_DETAILS)[0],     (CM_BLOCK),                    TY_(ParseBlock),     NULL           },
+  { TidyTag_DIALOG,      "dialog",       VERS_ELEM_DIALOG,      &TY_(W3CAttrsFor_DIALOG)[0],      (CM_BLOCK),                    TY_(ParseBlock),     NULL           },
   { TidyTag_EMBED,       "embed",        VERS_ELEM_EMBED,       &TY_(W3CAttrsFor_EMBED)[0],       (CM_INLINE|CM_IMG|CM_EMPTY),   TY_(ParseEmpty),     NULL           },
   { TidyTag_FIGCAPTION,  "figcaption",   VERS_ELEM_FIGCAPTION,  &TY_(W3CAttrsFor_FIGCAPTION)[0],  (CM_BLOCK),                    TY_(ParseBlock),     NULL           },
   { TidyTag_FIGURE,      "figure",       VERS_ELEM_FIGURE,      &TY_(W3CAttrsFor_FIGURE)[0],      (CM_BLOCK),                    TY_(ParseBlock),     NULL           },
@@ -287,7 +300,10 @@ static const Dict tag_defs[] =
   { TidyTag_HEADER,      "header",       VERS_ELEM_HEADER,      &TY_(W3CAttrsFor_HEADER)[0],      (CM_BLOCK),                    TY_(ParseBlock),     NULL           },
   { TidyTag_HGROUP,      "hgroup",       VERS_ELEM_HGROUP,      &TY_(W3CAttrsFor_HGROUP)[0],      (CM_BLOCK),                    TY_(ParseBlock),     NULL           },
   { TidyTag_KEYGEN,      "keygen",       VERS_ELEM_KEYGEN,      &TY_(W3CAttrsFor_KEYGEN)[0],      (CM_INLINE|CM_EMPTY),          TY_(ParseEmpty),     NULL           },
+  { TidyTag_MAIN,        "main",         VERS_ELEM_MAIN,        &TY_(W3CAttrsFor_MAIN)[0],        (CM_BLOCK),                    TY_(ParseBlock),     NULL           },
   { TidyTag_MARK,        "mark",         VERS_ELEM_MARK,        &TY_(W3CAttrsFor_MARK)[0],        (CM_INLINE),                   TY_(ParseInline),    NULL           },
+  { TidyTag_MENU,        "menu",         VERS_ELEM_MENU,        &TY_(W3CAttrsFor_MENU)[0],        (CM_BLOCK),                    TY_(ParseBlock),     NULL           },
+  { TidyTag_MENUITEM,    "menuitem",     VERS_ELEM_MENUITEM,    &TY_(W3CAttrsFor_MENUITEM)[0],    (CM_INLINE|CM_BLOCK|CM_MIXED), TY_(ParseInline),    NULL           },
   { TidyTag_METER,       "meter",        VERS_ELEM_METER,       &TY_(W3CAttrsFor_METER)[0],       (CM_INLINE),                   TY_(ParseInline),    NULL           },
   { TidyTag_NAV,         "nav",          VERS_ELEM_NAV,         &TY_(W3CAttrsFor_NAV)[0],         (CM_BLOCK),                    TY_(ParseBlock),     NULL           },
   { TidyTag_OUTPUT,      "output",       VERS_ELEM_OUTPUT,      &TY_(W3CAttrsFor_OUTPUT)[0],      (CM_INLINE),                   TY_(ParseInline),    NULL           },
@@ -463,6 +479,57 @@ static void declare( TidyDocImpl* doc, TidyTagImpl* tags,
         }
     }
 }
+
+#if !defined(NDEBUG) && defined(_MSC_VER)
+/* ==================================================================== 
+   MSVC DEBUG ONLY
+ */
+void ListElementsPerVersion( uint vers, Bool has )
+{
+    uint val, cnt, total, wrap = 10;
+    const Dict *np = tag_defs + 1;
+    const Dict *end = tag_defs + N_TIDY_TAGS;
+    cnt = 0;
+    total = 0;
+    for ( ; np < end; np++) {
+        val = (np->versions & vers);
+        if (has) {
+            if (val) {
+                SPRTF("%s ",np->name);
+                cnt++;
+                total++;
+            }
+        } else {
+            if (!val) {
+                SPRTF("%s ",np->name);
+                cnt++;
+                total++;
+            }
+        }
+        if (cnt == wrap) {
+            SPRTF("\n");
+            cnt = 0;
+        }
+    }
+    if (cnt)
+        SPRTF("\n");
+    SPRTF("Listed total %u tags that %s version %u\n", total,
+        (has ? "have" : "do not have"),
+        vers );
+
+}
+
+void show_not_html5(void)
+{
+    SPRTF("List tags that do not have version HTML5 (HT50|XH50)\n"),
+    ListElementsPerVersion( VERS_HTML5, no );
+}
+void show_have_html5(void)
+{
+    ListElementsPerVersion( VERS_HTML5, yes );
+}
+
+#endif
 
 /* public interface for finding tag by name */
 Bool TY_(FindTag)( TidyDocImpl* doc, Node *node )
@@ -883,6 +950,41 @@ uint TY_(nodeHeaderLevel)( Node* node )
     }
     return 0;
 }
+
+/* [i_a] generic node tree traversal; see also <tidy-int.h> */
+NodeTraversalSignal TY_(TraverseNodeTree)(TidyDocImpl* doc, Node* node, NodeTraversalCallBack *cb, void *propagate )
+{
+    while (node)
+    {
+        NodeTraversalSignal s = (*cb)(doc, node, propagate);
+
+        if (node->content && (s == ContinueTraversal || s == SkipSiblings))
+        {
+            s = TY_(TraverseNodeTree)(doc, node->content, cb, propagate);
+        }
+
+        switch (s)
+        {
+        case ExitTraversal:
+            return ExitTraversal;
+
+        case VisitParent:
+            node = node->parent;
+            continue;
+
+        case SkipSiblings:
+        case SkipChildrenAndSiblings:
+            return ContinueTraversal;
+
+        default:
+            node = node->next;
+            break;
+        }
+    }
+    return ContinueTraversal;
+}
+
+
 
 /*
  * local variables:

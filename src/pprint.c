@@ -652,19 +652,27 @@ static void PFlushLineImpl( TidyDocImpl* doc )
 {
     TidyPrintImpl* pprint = &doc->pprint;
 
-    uint i;
+    uint i, j;
 
     CheckWrapLine( doc );
 
+    j = 0;  /* Issue #133 - start text output */
     if ( WantIndent(doc) )
     {
         uint spaces = GetSpaces( pprint );
-        for ( i = 0; i < spaces; ++i )
+        for ( i = 0; i < spaces; ++i ) {
             TY_(WriteChar)( ' ', doc->docOut );
+            if (( j < pprint->linelen ) && ( pprint->linebuf[j] == ' ' )) {
+                /*\ Issue #133 - ever increasing indent on each tidy run
+                 *  Now removed any leading spaces by the amount of the indent 
+                \*/
+                j++;
+            }
+        }
     }
 
-    for ( i = 0; i < pprint->linelen; ++i )
-        TY_(WriteChar)( pprint->linebuf[i], doc->docOut );
+    for ( ; j < pprint->linelen; j++ )
+        TY_(WriteChar)( pprint->linebuf[j], doc->docOut );
     
     if ( IsInString(pprint) )
         TY_(WriteChar)( '\\', doc->docOut );
@@ -1303,44 +1311,7 @@ static Bool AfterSpace(Lexer *lexer, Node *node)
 }
 
 static void PPrintEndTag( TidyDocImpl* doc, uint ARG_UNUSED(mode),
-                          uint ARG_UNUSED(indent), Node *node )
-{
-    TidyPrintImpl* pprint = &doc->pprint;
-    Bool uc = cfgBool( doc, TidyUpperCaseTags );
-    tmbstr s = node->element;
-    tchar c;
-
-   /*
-     Netscape ignores SGML standard by not ignoring a
-     line break before </A> or </U> etc. To avoid rendering
-     this as an underlined space, I disable line wrapping
-     before inline end tags by the #if 0 ... #endif
-   */
-#if 0
-    if ( !(mode & NOWRAP) )
-        SetWrap( doc, indent );
-#endif
-
-    AddString( pprint, "</" );
-
-    if (s)
-    {
-        while (*s)
-        {
-             c = (unsigned char)*s;
-
-             if (c > 0x7F)
-                 s += TY_(GetUTF8)(s, &c);
-             else if (uc)
-                 c = TY_(ToUpper)(c);
-
-             AddChar(pprint, c);
-             ++s;
-        }
-    }
-
-    AddChar( pprint, '>' );
-}
+                          uint ARG_UNUSED(indent), Node *node );
 
 static void PPrintTag( TidyDocImpl* doc,
                        uint mode, uint indent, Node *node )
@@ -1416,6 +1387,46 @@ static void PPrintTag( TidyDocImpl* doc,
                   nodeIsBR(node) || AfterSpace(doc->lexer, node))
             PCondFlushLine( doc, indent );
     }
+}
+
+static void PPrintEndTag( TidyDocImpl* doc, uint ARG_UNUSED(mode),
+                          uint ARG_UNUSED(indent), Node *node )
+{
+    TidyPrintImpl* pprint = &doc->pprint;
+    Bool uc = cfgBool( doc, TidyUpperCaseTags );
+    tmbstr s = node->element;
+    tchar c;
+
+   /*
+     Netscape ignores SGML standard by not ignoring a
+     line break before </A> or </U> etc. To avoid rendering 
+     this as an underlined space, I disable line wrapping
+     before inline end tags by the #if 0 ... #endif
+   */
+#if 0
+    if ( !(mode & NOWRAP) )
+        SetWrap( doc, indent );
+#endif
+
+    AddString( pprint, "</" );
+
+    if (s)
+    {
+        while (*s)
+        {
+             c = (unsigned char)*s;
+
+             if (c > 0x7F)
+                 s += TY_(GetUTF8)(s, &c);
+             else if (uc)
+                 c = TY_(ToUpper)(c);
+
+             AddChar(pprint, c);
+             ++s;
+        }
+    }
+
+    AddChar( pprint, '>' );
 }
 
 static void PPrintComment( TidyDocImpl* doc, uint indent, Node* node )
@@ -1775,10 +1786,13 @@ void PPrintScriptStyle( TidyDocImpl* doc, uint mode, uint indent, Node *node )
     if ( InsideHead(doc, node) )
       TY_(PFlushLine)( doc, indent );
 
+    PCondFlushLine( doc, indent );  /* Issue #56 - long oustanding bug - flush any existing closing tag */
+
     PPrintTag( doc, mode, indent, node );
 
-    /* use zero indent here, see http://tidy.sf.net/bug/729972 */
-    TY_(PFlushLine)(doc, 0);
+    /* use zero indent here, see http://tidy.sf.net/bug/729972 
+       WHY??? TY_(PFlushLine)(doc, 0); */
+    TY_(PFlushLine)(doc, indent);
 
     if ( xhtmlOut && node->content != NULL )
     {
