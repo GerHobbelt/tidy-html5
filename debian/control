@@ -1,16 +1,23 @@
-Source: tidy-html5
+Source: tidy5
 Section: web
 Priority: optional
 Maintainer: Eberhard Beilharz <eb1@sil.org>
-Build-Depends: debhelper (>= 8), libtool, automake, autoconf, perl, xsltproc
+Build-Depends: debhelper (>= 8),
+    libtool,
+    perl,
+    xsltproc,
+    cmake
 Standards-Version: 3.9.5
-Homepage: http://w3c.github.io/tidy-html5/
+Homepage: http://www.html-tidy.org/
 
-Package: tidy-html5
+Package: tidy5
 Section: web
 Architecture: any
-Depends: ${misc:Depends}, ${shlibs:Depends}, libtidy-html5 (>= ${binary:Version})
-Suggests: tidy-html5-doc
+Depends: ${misc:Depends}, ${shlibs:Depends},
+	libtidy5 (>= ${binary:Version})
+Suggests: tidy5-doc
+Replaces: tidy-html5
+Conflicts: tidy-html5
 Description: HTML syntax checker and reformatter
  Corrects markup in a way compliant with the latest standards, and
  optimal for the popular browsers.  It has a comprehensive knowledge
@@ -26,10 +33,12 @@ Description: HTML syntax checker and reformatter
  .
  Tidy is a product of the World Wide Web Consortium.
 
-Package: libtidy-html5
+Package: libtidy5
 Section: libs
 Architecture: any
 Depends: ${misc:Depends}, ${shlibs:Depends}
+Replaces: libtidy-html5
+Conflicts: libtidy-html5
 Description: HTML syntax checker and reformatter - library
  Corrects markup in a way compliant with the latest standards, and
  optimal for the popular browsers.  It has a comprehensive knowledge
@@ -45,10 +54,13 @@ Description: HTML syntax checker and reformatter - library
  .
  Tidy is a product of the World Wide Web Consortium.
 
-Package: libtidy-html5-dev
+Package: libtidy5-dev
 Section: libdevel
 Architecture: any
-Depends: libtidy-html5 (= ${binary:Version}), ${misc:Depends}, ${shlibs:Depends}
+Depends: ${misc:Depends}, ${shlibs:Depends},
+	libtidy5 (= ${binary:Version})
+Replaces: libtidy-html5-dev
+Conflicts: libtidy-html5-dev
 Description: HTML syntax checker and reformatter - development
  Corrects markup in a way compliant with the latest standards, and
  optimal for the popular browsers.  It has a comprehensive knowledge
@@ -64,11 +76,13 @@ Description: HTML syntax checker and reformatter - development
  .
  Tidy is a product of the World Wide Web Consortium.
 
-Package: tidy-html5-doc
+Package: tidy5-doc
 Section: doc
 Architecture: all
 Depends: ${misc:Depends}, ${shlibs:Depends}
-Suggests: tidy-html5
+Suggests: tidy5
+Replaces: tidy-html5-doc
+Conflicts: tidy-html5-doc
 Description: HTML syntax checker and reformatter - documentation
  Corrects markup in a way compliant with the latest standards, and
  optimal for the popular browsers.  It has a comprehensive knowledge

@@ -20,7 +20,7 @@ extern "C" {
 /* #define TIDY_CONFIG_FILE "/etc/tidy_config.txt" */ /* original */
 /* #define TIDY_CONFIG_FILE "/etc/tidyrc" */
 /* #define TIDY_CONFIG_FILE "/etc/tidy.conf" */
-#define TIDY_CONFIG_FILE "/etc/tidy-html5.conf"
+#define TIDY_CONFIG_FILE "/etc/tidy5.conf"
 
 /*
   Uncomment the following #define if you are on a system

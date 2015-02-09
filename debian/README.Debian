@@ -1,8 +1,8 @@
-tidy-html5 documentation can be found in the
-tidy-html5-doc package. Also see tidy-html5 manpage.
+tidy5 documentation can be found in the
+tidy5-doc package. Also see tidy5 manpage.
 
 more documentation can be found at the following links:
-* Tidy - http://w3c.github.io/tidy-html5/
+* Tidy - http://www.html-tidy.org/
 * Accessibility - http://www.aprompt.ca/Tidy/
 
 config file is /etc/tidy.conf or ~/.tidyrc

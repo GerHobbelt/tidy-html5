@@ -130,7 +130,7 @@ install(TARGETS ${name}
     ARCHIVE DESTINATION lib
     LIBRARY DESTINATION lib
     )
-install( FILES ${HFILES} DESTINATION include )
+install( FILES ${HFILES} DESTINATION include/tidy5 )
 
 ##########################################################
 ### main executable

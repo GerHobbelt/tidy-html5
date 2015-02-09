@@ -1,4 +1,4 @@
-Document: tidy-html5
+Document: tidy5
 Title: Clean up your Web pages with HTML TIDY
 Author: Dave Raggett
 Abstract: HTML TIDY validates, corrects, and pretty-prints HTML files
@@ -10,5 +10,5 @@ Abstract: HTML TIDY validates, corrects, and pretty-prints HTML files
 Section: Web Development
 
 Format: HTML
-Index: /usr/share/doc/tidy-html5-doc/htmldoc/Overview.html
-Files: /usr/share/doc/tidy-html5-doc/htmldoc/*.html
+Index: /usr/share/doc/tidy5-doc/htmldoc/Overview.html
+Files: /usr/share/doc/tidy5-doc/htmldoc/*.html

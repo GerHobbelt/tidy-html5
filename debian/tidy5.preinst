@@ -19,7 +19,7 @@ LASTVERSION=20051018-1
 case "$1" in
 install|upgrade)
     if dpkg --compare-versions "$2" le "$LASTVERSION"; then
-        prep_mv_conffile tidy-html5 "/etc/tidy-html5/tidy-html5.conf"
+        prep_mv_conffile tidy5 "/etc/tidy5/tidy5.conf"
     fi
 esac
 

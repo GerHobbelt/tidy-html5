@@ -15,7 +15,7 @@ mv_conffile() {
 case "$1" in
 configure)
     if dpkg --compare-versions "$2" le "$LASTVERSION"; then
-        mv_conffile "/etc/tidy-html5/tidy-html5.conf" "/etc/tidy-html5.conf"
+        mv_conffile "/etc/tidy5/tidy5.conf" "/etc/tidy5.conf"
     fi
 esac
 

@@ -3,25 +3,24 @@
 #export DH_VERBOSE=1
 
 DOCDIR=htmldoc
-HELPXML=$(DOCDIR)/tidy-html5-help.xml
-CONFIGXML=$(DOCDIR)/tidy-html5-config.xml
+HELPXML=$(DOCDIR)/tidy5-help.xml
+CONFIGXML=$(DOCDIR)/tidy5-config.xml
 MANXSL=$(DOCDIR)/tidy1.xsl
-MANPAGE=debian/tidy-html5.1
+MANPAGE=debian/tidy5.1
 
 override_dh_auto_build:
-	make -C build/gmake/
+	cd build/cmake && cmake ../.. -DCMAKE_INSTALL_PREFIX=/usr -DBUILD_SHARED_LIB:BOOL=TRUE
+	cd build/cmake && make
 	echo "************ Step2 *************"
-	sh build/gnuauto/setup.sh && ./configure --prefix=/usr --sysconfdir=/etc --localstatedir=/var && make
 	## Generate manpage from tidy output
-	LD_LIBRARY_PATH=$${LD_LIBRARY_PATH:+$$LD_LIBRARY_PATH:}$(CURDIR)/src/.libs/ \
-		$(CURDIR)/bin/tidy-html5 -xml-help > $(HELPXML)
-	LD_LIBRARY_PATH=$${LD_LIBRARY_PATH:+$$LD_LIBRARY_PATH:}$(CURDIR)/src/.libs/ \
-		$(CURDIR)/bin/tidy-html5 -xml-config > $(CONFIGXML)
+	LD_LIBRARY_PATH=$${LD_LIBRARY_PATH:+$$LD_LIBRARY_PATH:}$(CURDIR)/build/cmake \
+		$(CURDIR)/build/cmake/tidy5 -xml-help > $(HELPXML)
+	LD_LIBRARY_PATH=$${LD_LIBRARY_PATH:+$$LD_LIBRARY_PATH:}$(CURDIR)/build/cmake \
+		$(CURDIR)/build/cmake/tidy5 -xml-config > $(CONFIGXML)
 	/usr/bin/xsltproc -o $(MANPAGE) $(MANXSL) $(HELPXML)
 
 override_dh_auto_install:
-	DESTDIR=`pwd`/debian/tmp make -C build/gmake/ install
-	DESTDIR=`pwd`/debian/tmp make install
+	cd build/cmake && DESTDIR=$(CURDIR)/debian/tmp make install
 
 override_dh_auto_clean:
 	dh_auto_clean
