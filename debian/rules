@@ -7,20 +7,24 @@ HELPXML=$(DOCDIR)/tidy5-help.xml
 CONFIGXML=$(DOCDIR)/tidy5-config.xml
 MANXSL=$(DOCDIR)/tidy1.xsl
 MANPAGE=debian/tidy5.1
+VERSION=`cat version.txt`
 
 override_dh_auto_build:
-	cd build/cmake && cmake ../.. -DCMAKE_INSTALL_PREFIX=/usr -DBUILD_SHARED_LIB:BOOL=TRUE
-	cd build/cmake && make
+	cmake . -DCMAKE_INSTALL_PREFIX=/usr -DBUILD_SHARED_LIB:BOOL=TRUE
+	make
 	echo "************ Step2 *************"
 	## Generate manpage from tidy output
-	LD_LIBRARY_PATH=$${LD_LIBRARY_PATH:+$$LD_LIBRARY_PATH:}$(CURDIR)/build/cmake \
-		$(CURDIR)/build/cmake/tidy5 -xml-help > $(HELPXML)
-	LD_LIBRARY_PATH=$${LD_LIBRARY_PATH:+$$LD_LIBRARY_PATH:}$(CURDIR)/build/cmake \
-		$(CURDIR)/build/cmake/tidy5 -xml-config > $(CONFIGXML)
+	LD_LIBRARY_PATH=$${LD_LIBRARY_PATH:+$$LD_LIBRARY_PATH:}$(CURDIR) \
+		$(CURDIR)/tidy5 -xml-help > $(HELPXML)
+	LD_LIBRARY_PATH=$${LD_LIBRARY_PATH:+$$LD_LIBRARY_PATH:}$(CURDIR) \
+		$(CURDIR)/tidy5 -xml-config > $(CONFIGXML)
 	/usr/bin/xsltproc -o $(MANPAGE) $(MANXSL) $(HELPXML)
 
+override_dh_makeshlibs:
+	dh_makeshlibs -V "libtidy5 (>= $(VERSION))"
+
 override_dh_auto_install:
-	cd build/cmake && DESTDIR=$(CURDIR)/debian/tmp make install
+	DESTDIR=$(CURDIR)/debian/tmp make install
 
 override_dh_auto_clean:
 	dh_auto_clean

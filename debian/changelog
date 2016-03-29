@@ -1,3 +1,9 @@
+tidy5 (4.9.8.1) unstable; urgency=medium
+
+  * Fix creation of shlibs file
+
+ -- Eberhard Beilharz <eb1@sil.org>  Thu, 19 Feb 2015 17:49:42 +0100
+
 tidy5 (4.9.8.0) unstable; urgency=medium
 
   * Update to develop-500 branch
