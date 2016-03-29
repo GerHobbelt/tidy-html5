@@ -9,6 +9,7 @@ Build-Depends: debhelper (>= 8),
     cmake
 Standards-Version: 3.9.5
 Homepage: http://www.html-tidy.org/
+Vcs-Git: https://github.com/BloomBooks/tidy-html5 -b debian
 
 Package: tidy5
 Section: web
