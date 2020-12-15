@@ -16,3 +16,4 @@ temp*
 .DS_Store
 .idea
 *.old
+.swiftpm
