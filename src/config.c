@@ -1293,7 +1293,7 @@ void TY_(AdjustConfig)( TidyDocImpl* doc )
     }
     
     /* Setup the indent character. */
-    if cfgBool(doc, TidyPPrintTabs) 
+    if ( cfgBool(doc, TidyPPrintTabs) )
         doc->indent_char = '\t';
     else
         doc->indent_char = ' ';
