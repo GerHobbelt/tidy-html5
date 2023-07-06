@@ -4545,5 +4545,5 @@ void TY_(freeStack)(Stack *stack, TidyDocImpl *doc)
     stack->capacity = 0;
     stack->firstNode = NULL;
     stack->allocator = NULL;
-    TidyFree( doc->allocator, stack)
+    TidyFree( doc->allocator, stack);
 }
