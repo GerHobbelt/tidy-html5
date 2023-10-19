@@ -112,7 +112,7 @@ int TY_(tmbstrcasecmp)( ctmbstr s1, ctmbstr s2 )
 {
     uint c;
 
-    while (c = (uint)(*s1), TY_(ToLower)(c) == TY_(ToLower)((uint)(*s2)))
+    while ((void)(c = (uint)(*s1)), TY_(ToLower)(c) == TY_(ToLower)((uint)(*s2)))
     {
         if (c == '\0')
             return 0;
@@ -158,7 +158,7 @@ int TY_(tmbstrncasecmp)( ctmbstr s1, ctmbstr s2, uint n )
 {
     uint c;
 
-    while (c = (uint)(*s1), TY_(ToLower)(c) == TY_(ToLower)((uint)(*s2)))
+    while ((void)(c = (uint)(*s1)), TY_(ToLower)(c) == TY_(ToLower)((uint)(*s2)))
     {
         if (c == '\0')
             return 0;

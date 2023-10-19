@@ -269,6 +269,7 @@ static const TidyOptionImpl option_defs[] =
     { TidyWrapScriptlets,          PP, "wrap-script-literals",        BL, no,              ParsePickList,     &boolPicks          },
     { TidyWrapSection,             PP, "wrap-sections",               BL, yes,             ParsePickList,     &boolPicks          },
     { TidyWriteBack,               IO, "write-back",                  BL, no,              ParsePickList,     &boolPicks          },
+    { TidyWriteEntities,           ME, "write-entities",              BL, yes,             ParsePickList,     &boolPicks           },
     { TidyXhtmlOut,                DT, "output-xhtml",                BL, no,              ParsePickList,     &boolPicks          },
     { TidyXmlDecl,                 DT, "add-xml-decl",                BL, no,              ParsePickList,     &boolPicks          },
     { TidyXmlOut,                  DT, "output-xml",                  BL, no,              ParsePickList,     &boolPicks          },
