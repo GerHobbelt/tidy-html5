@@ -727,7 +727,8 @@ TIDY_EXPORT Bool TIDY_CALL tidyOptionIsList( TidyOption opt );
  ** @result Returns `yes` or `no` depending on whether or not the specified
  **         option is read-only.
  */
-TIDY_EXPORT Bool TIDY_CALL          tidyOptIsReadOnly( TidyOption opt ) __attribute__((deprecated));
+HTMLTIDY_DEPRECATED("This is no longer a valid test for the public API")
+TIDY_EXPORT Bool TIDY_CALL          tidyOptIsReadOnly( TidyOption opt );
 
 /** Get category of given Option
  ** @param opt An instance of a TidyOption to query.

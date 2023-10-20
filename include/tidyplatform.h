@@ -691,6 +691,22 @@ typedef struct _##typenam const * typenam
 */
 opaque_type( TidyIterator );
 
+#if defined(__clang__)
+# define HTMLTIDY_DEPRECATED(msg) __attribute__((deprecated(msg)))
+#elif defined(__GNUC__)
+# if __GNUC__ * 100 + __GNUC_MINOR__ >= 405
+#  define HTMLTIDY_DEPRECATED(msg) __attribute__((deprecated(msg)))
+# else
+#  define HTMLTIDY_DEPRECATED(msg) __attribute__((deprecated))
+# endif
+#elif defined(_MSC_VER)
+#  define HTMLTIDY_DEPRECATED(msg) __declspec(deprecated(msg))
+#elif defined(__sun)
+#  define HTMLTIDY_DEPRECATED(msg) __attribute__((deprecated(msg)))
+#else
+# define HTMLTIDY_DEPRECATED(msg)
+#endif
+
 #ifdef __cplusplus
 } /* extern "C" */
 #endif
