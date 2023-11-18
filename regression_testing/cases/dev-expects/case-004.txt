@@ -1,4 +1,6 @@
-No warnings or errors were found.
+line 30 column 5 - Warning: <optgroup> can't be nested
+Info: Document content looks like HTML5
+Tidy found 1 warning and 0 errors!
 
 About HTML Tidy: https://github.com/htacg/tidy-html5
 Bug reports and comments: https://github.com/htacg/tidy-html5/issues
