@@ -1,5 +1,0 @@
-module rdtidy [system] {
-    header "rdtidyhtml5.h"
-    export *
-    link "tidy"
-}
