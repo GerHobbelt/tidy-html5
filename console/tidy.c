@@ -49,6 +49,8 @@ static FILE* errout = NULL;
  ** @{
  */
 
+/** Fatal error count - like bad option, no files, etc - Exit -1 */
+static uint errorCount = 0; /* Is. #921 */
 
 /* MARK: - Miscellaneous Utilities */
 /***************************************************************************//**
@@ -2127,6 +2129,7 @@ int main( int argc, const char** argv )
         if ( status != 0 ) {
             fprintf(errout, tidyLocalizedString( TC_MAIN_ERROR_LOAD_CONFIG ), TIDY_CONFIG_FILE, status);
             fprintf(errout, "\n");
+            errorCount++; /* Is. #921 - config file failed */
         }
     }
 #endif /* TIDY_CONFIG_FILE */
@@ -2137,6 +2140,7 @@ int main( int argc, const char** argv )
         if ( status != 0 ) {
             fprintf(errout, tidyLocalizedString( TC_MAIN_ERROR_LOAD_CONFIG ), cfgfil, status);
             fprintf(errout, "\n");
+            errorCount++; /* Is. #921 - config file failed */
         }
     }
 #ifdef TIDY_USER_CONFIG_FILE
@@ -2146,6 +2150,7 @@ int main( int argc, const char** argv )
         if ( status != 0 ) {
             fprintf(errout, tidyLocalizedString( TC_MAIN_ERROR_LOAD_CONFIG ), TIDY_USER_CONFIG_FILE, status);
             fprintf(errout, "\n");
+            errorCount++; /* Is. #921 - config file failed */
         }
     }
 #endif /* TIDY_USER_CONFIG_FILE */
@@ -2483,6 +2488,7 @@ int main( int argc, const char** argv )
 
                             default:
                                 unknownOption( tdoc, c );
+                                errorCount++; /* Is. #921 - option error */
                                 break;
                         }
                     }
@@ -2510,6 +2516,8 @@ int main( int argc, const char** argv )
             if ( tidyOptGetBool(tdoc, TidyEmacs) || tidyOptGetBool(tdoc, TidyShowFilename))
                 tidySetEmacsFile( tdoc, htmlfil );
             status = tidyParseFile( tdoc, htmlfil );
+            if (status < 0) /* Is. #921 - input file failed */
+                errorCount++;
         }
         else
         {
@@ -2551,6 +2559,7 @@ int main( int argc, const char** argv )
         contentErrors   += tidyErrorCount( tdoc )   - tidyMutedErrorCount( tdoc );
         contentWarnings += tidyWarningCount( tdoc ) - tidyMutedWarningCount( tdoc );
         accessWarnings  += tidyAccessWarningCount( tdoc );
+        errorCount      += tidyConfigErrorCount( tdoc); /* Is. #921 - config error are fatal */
         
         --argc;
         ++argv;
@@ -2572,8 +2581,16 @@ int main( int argc, const char** argv )
 
     /* called to free hash tables etc. */
     tidyRelease( tdoc );
-    
+
     /* return status can be used by scripts */
+
+    /* Is. #921 - one, or more fatal errors */
+    /* this can be many forms, from file does not exit, to an unknown option,
+     *  or malformed option, etc ...
+     */
+    if (errorCount > 0)   
+        return 3; /* Is. #921 */
+
     if ( contentErrors > 0 )
         return 2;
     
