@@ -1613,8 +1613,7 @@ static void PPrintAttribute( TidyDocImpl* doc, uint indent,
         Bool scriptAttr = TY_(attrIsEvent)(attr);
 
         if ( xmlOut )
-            PPrintAttrValue( doc, indent, isB ? attr->attribute : NULLSTR,
-                             attr->delim, no, scriptAttr );
+            PPrintAttrValue( doc, indent, "", attr->delim, yes, scriptAttr );
 
         else if ( !isB && !TY_(IsNewNode)(node) )
             PPrintAttrValue( doc, indent, "", attr->delim, yes, scriptAttr );
