@@ -28,9 +28,6 @@
  * @date      Further modifications: consult git log.
  ******************************************************************************/
 
-#ifdef __cplusplus
-extern "C" {
-#endif
 
 /*=============================================================================
  * Unix console application features
@@ -671,6 +668,11 @@ extern void* null;
 
 #if defined(DMALLOC)
 #  include "dmalloc.h"
+#endif
+
+
+#ifdef __cplusplus
+extern "C" {
 #endif
 
 /* Opaque data structure.
