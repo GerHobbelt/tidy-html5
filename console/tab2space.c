@@ -245,7 +245,7 @@ static void WriteFile(Stream *in, FILE *fout)
     }
 }
 
-static void HelpText(FILE *errout, char *prog)
+static void HelpText(FILE *errout, const char *prog)
 {
     fprintf(errout, "%s: [options] [infile [outfile]] ...\n", prog);
     fprintf(errout, "Utility to expand tabs and ensure consistent line endings\n");
@@ -259,10 +259,15 @@ static void HelpText(FILE *errout, char *prog)
     fprintf(errout, "\nNote this utility doesn't map spaces to tabs!\n");
 }
 
-int main(int argc, char **argv)
+
+#if defined(BUILD_MONOLITHIC)
+#define main         tidy_tab2space_main
+#endif
+
+int main(int argc, const char **argv)
 {
     char const *infile, *outfile;
-    char *prog;
+    const char *prog;
     FILE *fin, *fout;
     Stream *in = NULL;
 

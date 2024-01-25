@@ -2073,7 +2073,11 @@ static Bool TIDY_CALL reportCallback(TidyMessage tmessage)
  */
 
 
-int main( int argc, char** argv )
+#if defined(BUILD_MONOLITHIC)
+#define main         tidy_cli_main
+#endif
+
+int main( int argc, const char** argv )
 {
     ctmbstr prog = argv[0];
     ctmbstr cfgfil = NULL, errfil = NULL, htmlfil = NULL;
