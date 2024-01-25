@@ -127,10 +127,10 @@ int openURL( HTTPInputSource *in, tmbstr pUrl )
         char ch, lastCh = '\0';
         int blanks = 0;
 
-        char *getCmd = MemAlloc( 48 + strlen( in->pResource ));
+        char *getCmd = TidyAlloc( 48 + strlen( in->pResource ));
         sprintf( getCmd, "GET /%s HTTP/1.0\r\nAccept: text/html\r\n\r\n", in->pResource );
         send( in->s, getCmd, strlen( getCmd ), 0 );
-        MemFree( getCmd );
+        TidyFree( getCmd );
 
         /*  skip past the header information  */
         while (   in->nextBytePos >= in->nBufSize
