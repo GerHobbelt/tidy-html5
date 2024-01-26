@@ -11,6 +11,7 @@
 #include <stdio.h>
 #include "tidybuffio.h"
 #include "tidy.h"
+#include "monolithic_examples.h"
 
 static const char *sample =
     "<!DOCTYPE html>\n"

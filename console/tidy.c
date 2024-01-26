@@ -33,6 +33,8 @@
 #  include <crtdbg.h>
 #endif
 
+#include "monolithic_examples.h"
+
 /** Tidy will send errors to this file, which will be stderr later. */
 static FILE* errout = NULL;
 

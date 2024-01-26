@@ -3,6 +3,7 @@
 #include <string.h>
 
 #include "tidyplatform.h"
+#include "monolithic_examples.h"
 
 #define true       1
 #define false      0
