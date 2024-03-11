@@ -1305,7 +1305,7 @@ EXIT_CLEANLY:
 /** Handles the -help-option service.
  */
 static void optionDescribe(TidyDoc tdoc, /**< The Tidy Document */
-                           char *option  /**< The name of the option. */
+                           const char *option  /**< The name of the option. */
                            )
 {
     tmbstr result = NULL;
