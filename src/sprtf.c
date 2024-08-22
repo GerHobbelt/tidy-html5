@@ -180,7 +180,9 @@ void   set_log_file( char * nf, int open )
 }
 
 #ifdef _MSC_VER
-int gettimeofday(struct timeval *tp, void *tzp)
+#define gettimeofday   tidy_gettimeofday
+
+int tidy_gettimeofday(struct timeval *tp, void *tzp)
 {
 #ifdef WIN32
     struct _timeb timebuffer;
