@@ -63,8 +63,8 @@ jobs:
     - name: Checkout tidy-mac-installer
       uses: actions/checkout@v3
       with:
-        repository: nizarbenalla/tidy-mac-installer
-        ref: next
+        repository: htacg/tidy-mac-installer
+        ref: master
         path: ${{github.workspace}}/tidy-mac-installer
 
 
@@ -132,4 +132,3 @@ jobs:
       with:
         name: "partials_for_website-macos.yml"
         path: "${{github.workspace}}/tidy-mac-installer/build/binaries-partial.yml"
-
