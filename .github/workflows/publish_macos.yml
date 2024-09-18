@@ -39,7 +39,7 @@ jobs:
     #   fail.
     ############################################################
     - name: Checkout this repository
-      uses: actions/checkout@v2
+      uses: actions/checkout@v3
       with:
         path: ${{github.workspace}}/tidy-html5
         ref: ${{github.event.inputs.tag}}
@@ -61,7 +61,7 @@ jobs:
     # Checkout the Installer repository as tidy-mac-installer.
     ############################################################
     - name: Checkout tidy-mac-installer
-      uses: actions/checkout@v2
+      uses: actions/checkout@v3
       with:
         repository: htacg/tidy-mac-installer
         ref: master
@@ -128,7 +128,7 @@ jobs:
     # Post the manifest to the run results.
     ############################################################
     - name: Post the Dmg Artifact
-      uses: actions/upload-artifact@v2
+      uses: actions/upload-artifact@v3
       with:
         name: "partials_for_website-macos.yml"
         path: "${{github.workspace}}/tidy-mac-installer/build/binaries-partial.yml"
