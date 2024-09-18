@@ -63,7 +63,7 @@ jobs:
     - name: Checkout tidy-mac-installer
       uses: actions/checkout@v3
       with:
-        repository: htacg/tidy-mac-installer
+        repository: nizarbenalla/tidy-mac-installer
         ref: master
         path: ${{github.workspace}}/tidy-mac-installer
 
