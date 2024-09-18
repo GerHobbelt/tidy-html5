@@ -98,7 +98,7 @@ jobs:
     # Checkput the repository.
     ############################################################
     - name: Checkout Self
-      uses: actions/checkout@v2
+      uses: actions/checkout@v3
 
 
     ############################################################
@@ -205,7 +205,7 @@ jobs:
     # Post the manifest to the run results.
     ############################################################
     - name: Post the Manifest
-      uses: actions/upload-artifact@v2
+      uses: actions/upload-artifact@v3
       with:
         name: "partials_for_website-${{matrix.os}}.yml"
         path: ${{github.workspace}}/build/cmake/binaries-partial.yml
