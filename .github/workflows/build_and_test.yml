@@ -71,6 +71,11 @@ jobs:
            vers_command: "./tidy.exe --version"
            test_command: "ruby test.rb test"
 
+         ############################################################
+         # We'll also build using MinGW on Windows, because it's
+         # always nice to support FOSS toolchains. While we could
+         # do this another way, we'll use the windows-2016 runner
+         # to distinguish it from the windows-latest runner.
 
 
     steps:
@@ -78,14 +83,14 @@ jobs:
     ############################################################
     # Checkput the repository.
     ############################################################
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v2
 
     ############################################################
     # Install MinGW-w64 if needed for the current runner.
     ############################################################
     - name: Install MinGW-w64
       if: ${{matrix.os == 'windows-2016'}}
-      uses: egor-tensin/setup-mingw@v3
+      uses: egor-tensin/setup-mingw@v2
       with:
         platform: x64
 
