@@ -71,49 +71,21 @@ jobs:
            vers_command: "./tidy.exe --version"
            test_command: "ruby test.rb test"
 
-         ############################################################
-         # We'll also build using MinGW on Windows, because it's
-         # always nice to support FOSS toolchains. While we could
-         # do this another way, we'll use the windows-2016 runner
-         # to distinguish it from the windows-latest runner.
-         ############################################################
-         - os: windows-2016
-           name: MinGW
-           cmake_command: "cmake ../.. -DCMAKE_BUILD_TYPE=Release -G 'MinGW Makefiles'"
-           build_command: "cmake --build . --config Release"
-           vers_command: "./tidy --version"
-           test_command: "ruby test.rb test"
 
-         ############################################################
-         # We'll also build using Cygwin on Windows, because even
-         # Windows people sometimes dislike Windows. While we could
-         # do this another way, we'll use the windows-2019 runner to
-         # distinguish it from the windows-latest runner.
-         # Note: only the `tidy` target will be built (without the
-         # man page) for this runner, because xltproc has issues
-         # loading files in the virtual environment. The man page
-         # is tested and builds perfectly fine on real installs.
-         ############################################################
-         - os: windows-2019
-           name: Cygwin
-           cmake_command: "cmake ../.. -DCMAKE_BUILD_TYPE=Release"
-           build_command: "cmake --build . --target tidy --config Release"
-           vers_command: "./tidy --version"
-           test_command: "ruby test.rb test"
 
     steps:
 
     ############################################################
     # Checkput the repository.
     ############################################################
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v3
 
     ############################################################
     # Install MinGW-w64 if needed for the current runner.
     ############################################################
     - name: Install MinGW-w64
       if: ${{matrix.os == 'windows-2016'}}
-      uses: egor-tensin/setup-mingw@v2
+      uses: egor-tensin/setup-mingw@v3
       with:
         platform: x64
 
