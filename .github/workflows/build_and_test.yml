@@ -83,7 +83,7 @@ jobs:
     ############################################################
     # Checkput the repository.
     ############################################################
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v3
 
     ############################################################
     # Install MinGW-w64 if needed for the current runner.
@@ -99,7 +99,7 @@ jobs:
     ############################################################
     - name: Install Cygwin
       if: ${{matrix.os == 'windows-2019'}}
-      uses: egor-tensin/setup-cygwin@v3
+      uses: egor-tensin/setup-cygwin@v2
       with:
         platform: x64
         packages: make gcc-core gcc-g++ cmake
