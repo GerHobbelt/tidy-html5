@@ -73,7 +73,7 @@ jobs:
     - name: Checkout SwLibTidy
       uses: actions/checkout@v2
       with:
-        repository: htacg/SwLibTidy
+        repository: nizarbenalla/SwLibTidy
 
 
     ############################################################
