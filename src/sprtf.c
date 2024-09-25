@@ -49,7 +49,7 @@
 static char _s_strbufs[MX_ONE_BUF * MX_BUFFERS];
 static int iNextBuf = 0;
 
-char *GetNxtBuf()
+char *GetNxtBuf(void)
 {
    iNextBuf++;
    if(iNextBuf >= MX_BUFFERS)
@@ -220,7 +220,7 @@ void add_time_stg( char *ps, struct timeval *ptv )
     }
 }
 
-char *get_date_stg()
+char *get_date_stg(void)
 {
     char *ps;
     struct timeval tv;
@@ -231,7 +231,7 @@ char *get_date_stg()
     return ps;
 }
 
-char *get_time_stg()
+char *get_time_stg(void)
 {
     char *ps;
     struct timeval tv;
@@ -242,7 +242,7 @@ char *get_time_stg()
     return ps;
 }
 
-char *get_date_time_stg()
+char *get_date_time_stg(void)
 {
     char *ps;
     struct timeval tv;
