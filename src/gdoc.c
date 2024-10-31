@@ -96,14 +96,15 @@ static void DiscardContainer( TidyDocImpl* doc, Node *element, Node **pnode)
 
 static void CleanNode( TidyDocImpl* doc, Node *node )
 {
+    Stack *stack = TY_(newStack)(doc, 16);
     Node *child, *next;
 
-    if (node->content)
+    if ( (child = node->content) )
     {
-        for (child = node->content; child != NULL; child = next)
+        while (child)
         {
             next = child->next;
-
+            
             if (TY_(nodeIsElement)(child))
             {
                 if (nodeIsSTYLE(child))
@@ -115,6 +116,11 @@ static void CleanNode( TidyDocImpl* doc, Node *node )
                 else if (nodeIsA(child) && !child->content)
                  {
                     AttVal *id = TY_(GetAttrByName)( child, "name" );
+                    /* Recent Google Docs is using "id" instead of "name" in
+                    ** the exported html.
+                    */
+                    if (!id)
+                        id = TY_(GetAttrByName)( child, "id" );
 
                     if (id)
                         TY_(RepairAttrValue)( doc, child->parent, "id", id->value );
@@ -126,10 +132,14 @@ static void CleanNode( TidyDocImpl* doc, Node *node )
                     if (child->attributes)
                         TY_(DropAttrByName)( doc, child, "class" );
 
-                    CleanNode(doc, child);
+                    TY_(push)(stack,next);
+                    child = child->content;
+                    continue;
                 }
             }
+            child = next ? next : TY_(pop)(stack);
         }
+        TY_(freeStack)(stack, doc);
     }
 }
 

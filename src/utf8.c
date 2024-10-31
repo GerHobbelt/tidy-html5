@@ -44,10 +44,10 @@ ISO/IEC 10646-1:1996 Amendment 2 or ISO/IEC 10646-1:2000 Annex D
 Table 4 - Mapping from UCS-4 to UTF-8
 
 2) Unicode standards:
-<http://www.unicode.org/unicode/standard/standard.html>
+<https://www.unicode.org/standard/standard.html>
 
 3) Legal UTF-8 byte sequences:
-<http://www.unicode.org/unicode/uni2errata/UTF-8_Corrigendum.html>
+<https://www.unicode.org/versions/corrigendum1.html>
 
 Code point          1st byte    2nd byte    3rd byte    4th byte
 ----------          --------    --------    --------    --------
@@ -91,7 +91,7 @@ ISO/IEC 10646-1:1996 Amendment 1 or ISO/IEC 10646-1:2000 Annex C
 <http://www.ietf.org/rfc/rfc2781.txt>
 
 11) UTF-16 invalid surrogate pairs:
-<http://www.unicode.org/unicode/faq/utf_bom.html#16>
+<https://www.unicode.org/faq/utf_bom.html#16>
 
 UTF-16       UTF-8          UCS-4
 D83F DFF*    F0 9F BF B*    0001FFF*
@@ -273,12 +273,6 @@ int TY_(DecodeUTF8BytesToChar)( uint* c, uint firstByte, ctmbstr successorBytes,
     if (!hasError && (n > kMaxUTF8FromUCS4))
         hasError = yes;
 
-#if 0 /* Breaks Big5 D8 - DF */
-    if (!hasError && (n >= kUTF16LowSurrogateBegin) && (n <= kUTF16HighSurrogateEnd))
-        /* unpaired surrogates not allowed */
-        hasError = yes;
-#endif
-
     if (!hasError)
     {
         int lo, hi;
@@ -323,7 +317,7 @@ int TY_(DecodeUTF8BytesToChar)( uint* c, uint firstByte, ctmbstr successorBytes,
        fprintf( stderr, "0x%02x ", firstByte );
        for (i = 1; i < bytes; i++)
            fprintf( stderr, "0x%02x ", buf[i - 1] );
-       fprintf( stderr, " = U+%04ulx\n", n );
+       fprintf( stderr, " = U+%04X\n", n );
     }
 #endif
 
@@ -364,11 +358,6 @@ int TY_(EncodeCharToUTF8Bytes)( uint c, tmbstr encodebuf,
         bytes = 3;
         if ( c == kUTF8ByteSwapNotAChar || c == kUTF8NotAChar )
             hasError = yes;
-#if 0 /* Breaks Big5 D8 - DF */
-        else if ( c >= kUTF16LowSurrogateBegin && c <= kUTF16HighSurrogateEnd )
-            /* unpaired surrogates not allowed */
-            hasError = yes;
-#endif
     }
     else if (c <= 0x1FFFFF)  /* 1111 0XXX  four bytes */
     {

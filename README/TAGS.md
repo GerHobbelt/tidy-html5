@@ -2,13 +2,13 @@
 
 This is about adding a new HTML **tag**.
 
-Tidy tries to support all **tags** supported by the W3C. To add a new supported **tag**, the defintion begins in `tidyenum.h`, to give it a value. Then it is added to the `tag_defs[]` table in `tags.c`, where it is given a unique string, supported html versions, attributes support, and a bit `type`.
+Tidy tries to support all **tags** supported by the W3C. To add a new supported **tag**, the definition begins in `tidyenum.h`, to give it a value. Then it is added to the `tag_defs[]` table in `tags.c`, where it is given a unique string, supported html versions, attributes support, and a bit `type`.
 
-Note, there are a group of configuration options to add **tags** not yet approved by the W3C. These are [new-blocklevel-tags](http://api.html-tidy.org/tidy/quickref_5.2.0.html#new-blocklevel-tags), [new-empty-tags](http://api.html-tidy.org/tidy/quickref_5.2.0.html#new-empty-tags), [new-inline-tags](http://api.html-tidy.org/tidy/quickref_5.2.0.html#new-inline-tags). and [new-pre-tags](http://api.html-tidy.org/tidy/quickref_5.2.0.html#new-pre-tags). This provides a way to extend the `tag_defs[]` table just for that tidy session.
+Note, there are a group of configuration options to add **tags** not yet approved by the W3C. These are [new-blocklevel-tags](https://api.html-tidy.org/tidy/quickref_next.html#new-blocklevel-tags), [new-empty-tags](https://api.html-tidy.org/tidy/quickref_next.html#new-empty-tags), [new-inline-tags](https://api.html-tidy.org/tidy/quickref_next.html#new-inline-tags). and [new-pre-tags](https://api.html-tidy.org/tidy/quickref_next.html#new-pre-tags). This provides a way to extend the `tag_defs[]` table just for that tidy session.
 
 So, adding a new HTML **tag** consists of the following simple steps:
 
- 1. `tidyenum.h` - Give the element an internal name, like `TidyTag_XXXX`, and thus a value. While there were some initial steps to keep this `TidyTagId` enumeration alphabetic, now just add the new `TidyTag_XXXX` just before the last entry `N_TIDY_TAGS`.
+ 1. `tidyenum.h` - Give the element an internal name, like `TidyTag_XXXX`, and thus a value. Please keep this list in alphabetical order.
 
  2. `tags.c` - Add a line to the `tag_defs[]` table. This assigns the unique string value of the element. Then the html versions that support the element, a pointer to the attributes supported by that elelment, and a bit field of the elements characteristics, inline, block, etc.
  

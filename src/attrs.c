@@ -31,6 +31,7 @@ static AttrCheck CheckAction;
 static AttrCheck CheckScript;
 static AttrCheck CheckName;
 static AttrCheck CheckId;
+static AttrCheck CheckIs;
 static AttrCheck CheckAlign;
 static AttrCheck CheckValign;
 static AttrCheck CheckBool;
@@ -46,10 +47,14 @@ static AttrCheck CheckVType;
 static AttrCheck CheckScroll;
 static AttrCheck CheckTextDir;
 static AttrCheck CheckLang;
+static AttrCheck CheckLoading;
 static AttrCheck CheckType;
 static AttrCheck CheckRDFaSafeCURIE;
 static AttrCheck CheckRDFaTerm;
 static AttrCheck CheckRDFaPrefix;
+static AttrCheck CheckDecimal;
+static AttrCheck CheckSvgAttr;
+static AttrCheck CheckRefPol;
 
 #define CH_PCDATA      NULL
 #define CH_CHARSET     NULL
@@ -65,6 +70,7 @@ static AttrCheck CheckRDFaPrefix;
 #define CH_CLEAR       CheckClear
 #define CH_BORDER      CheckBool     /* kludge */
 #define CH_LANG        CheckLang
+#define CH_LOADING     CheckLoading
 #define CH_BOOL        CheckBool
 #define CH_COLS        NULL
 #define CH_NUMBER      CheckNumber
@@ -75,6 +81,7 @@ static AttrCheck CheckRDFaPrefix;
 #define CH_IDREFS      NULL
 #define CH_IDREF       NULL
 #define CH_IDDEF       CheckId
+#define CH_ISDEF       CheckIs
 #define CH_NAME        CheckName
 #define CH_TFRAME      NULL
 #define CH_FBORDER     NULL
@@ -93,7 +100,15 @@ static AttrCheck CheckRDFaPrefix;
 #define CH_RDFASCURIES CheckRDFaSafeCURIE
 #define CH_RDFATERM    CheckRDFaTerm
 #define CH_RDFATERMS   CheckRDFaTerm
+#define CH_DECIMAL     CheckDecimal
+#define CH_SVG         CheckSvgAttr
+#define CH_REFPOL      CheckRefPol
 
+/*
+   WARNING: This table /must/ be kept in the EXACT order of the TidyAttrId enum!
+   When running the DEBUG version, this order is checked, in TY_(InitAttrs)(doc),
+   and there is an assert() if any difference found.
+*/
 static const Attribute attribute_defs [] =
 {
   { TidyAttr_UNKNOWN,                 "unknown!",                NULL         }, 
@@ -142,8 +157,9 @@ static const Attribute attribute_defs [] =
   { TidyAttr_DATETIME,                "datetime",                CH_DATE      }, /* INS, DEL */
   { TidyAttr_DECLARE,                 "declare",                 CH_BOOL      }, /* OBJECT */
   { TidyAttr_DEFER,                   "defer",                   CH_BOOL      }, /* SCRIPT */
-  { TidyAttr_DIR,                     "dir",                     CH_TEXTDIR   }, /* ltr or rtl */
+  { TidyAttr_DIR,                     "dir",                     CH_TEXTDIR   }, /* ltr, rtl or auto */
   { TidyAttr_DISABLED,                "disabled",                CH_BOOL      }, /* form fields */
+  { TidyAttr_DOWNLOAD,                "download",                CH_PCDATA    }, /* anchor */
   { TidyAttr_ENCODING,                "encoding",                CH_PCDATA    }, /* <?xml?> */
   { TidyAttr_ENCTYPE,                 "enctype",                 CH_XTYPE     }, /* FORM */
   { TidyAttr_FACE,                    "face",                    CH_PCDATA    }, /* BASEFONT, FONT */
@@ -160,12 +176,13 @@ static const Attribute attribute_defs [] =
   { TidyAttr_HSPACE,                  "hspace",                  CH_NUMBER    }, /* APPLET, IMG, OBJECT */
   { TidyAttr_HTTP_EQUIV,              "http-equiv",              CH_PCDATA    }, /* META */
   { TidyAttr_ID,                      "id",                      CH_IDDEF     }, 
+  { TidyAttr_IS,                      "is",                      CH_ISDEF     },
   { TidyAttr_ISMAP,                   "ismap",                   CH_BOOL      }, /* IMG */
   { TidyAttr_ITEMID,                  "itemid",                  CH_PCDATA    },
   { TidyAttr_ITEMPROP,                "itemprop",                CH_PCDATA    },
   { TidyAttr_ITEMREF,                 "itemref",                 CH_PCDATA    },
   { TidyAttr_ITEMSCOPE,               "itemscope",               CH_BOOL      },
-  { TidyAttr_ITEMTYPE,                "itemtype",                CH_URL       },
+  { TidyAttr_ITEMTYPE,                "itemtype",                CH_PCDATA    },
   { TidyAttr_LABEL,                   "label",                   CH_PCDATA    }, /* OPT, OPTGROUP */
   { TidyAttr_LANG,                    "lang",                    CH_LANG      }, 
   { TidyAttr_LANGUAGE,                "language",                CH_PCDATA    }, /* SCRIPT */
@@ -218,6 +235,7 @@ static const Attribute attribute_defs [] =
   { TidyAttr_PROMPT,                  "prompt",                  CH_PCDATA    }, /* ISINDEX */
   { TidyAttr_RBSPAN,                  "rbspan",                  CH_NUMBER    }, /* ruby markup */
   { TidyAttr_READONLY,                "readonly",                CH_BOOL      }, /* form fields */
+  { TidyAttr_REFERRERPOLICY,          "referrerpolicy",          CH_REFPOL      }, /* form fields */
   { TidyAttr_REL,                     "rel",                     CH_LINKTYPES }, 
   { TidyAttr_REV,                     "rev",                     CH_LINKTYPES }, 
   { TidyAttr_RIGHTMARGIN,             "rightmargin",             CH_NUMBER    }, /* used on BODY */
@@ -302,8 +320,9 @@ static const Attribute attribute_defs [] =
   { TidyAttr_MAX,                     "max",                     CH_PCDATA   },
   { TidyAttr_MEDIAGROUP,              "mediagroup",              CH_PCDATA   },
   { TidyAttr_MIN,                     "min",                     CH_PCDATA   },
+  { TidyAttr_MUTED,                   "muted",                   CH_BOOL     },
   { TidyAttr_NOVALIDATE,              "novalidate",              CH_PCDATA   },
-  { TidyAttr_OPEN,                    "open",                    CH_PCDATA   },
+  { TidyAttr_OPEN,                    "open",                    CH_BOOL     }, /* Is. #925 PR #932 */
   { TidyAttr_OPTIMUM,                 "optimum",                 CH_PCDATA   },
   { TidyAttr_OnABORT,                 "onabort",                 CH_PCDATA   },
   { TidyAttr_OnAFTERPRINT,            "onafterprint",            CH_PCDATA   },
@@ -357,6 +376,7 @@ static const Attribute attribute_defs [] =
   { TidyAttr_OnWAITING,               "onwaiting",               CH_PCDATA   },
   { TidyAttr_PATTERN,                 "pattern",                 CH_PCDATA   },
   { TidyAttr_PLACEHOLDER,             "placeholder",             CH_PCDATA   },
+  { TidyAttr_PLAYSINLINE,             "playsinline",             CH_BOOL     },
   { TidyAttr_POSTER,                  "poster",                  CH_PCDATA   },
   { TidyAttr_PRELOAD,                 "preload",                 CH_PCDATA   },
   { TidyAttr_PUBDATE,                 "pubdate",                 CH_PCDATA   },
@@ -408,24 +428,14 @@ static const Attribute attribute_defs [] =
   { TidyAttr_ARIA_VALUEMIN,           "aria-valuemin",           CH_PCDATA   },
   { TidyAttr_ARIA_VALUENOW,           "aria-valuenow",           CH_PCDATA   },
   { TidyAttr_ARIA_VALUETEXT,          "aria-valuetext",          CH_PCDATA   },
-
   { TidyAttr_X,                       "x",                       CH_PCDATA    }, /* for <svg> */
   { TidyAttr_Y,                       "y",                       CH_PCDATA    }, /* for <svg> */
-#if 0   /* with uppercase chars taken directly from W3C; are these case-insensitive everywhere? */
-  { TidyAttr_VIEWBOX,                 "viewBox",                 VERS_INLINE_SVG,   CH_PCDATA    }, /* for <svg> */
-  { TidyAttr_PRESERVEASPECTRATIO,     "preserveAspectRatio",     VERS_INLINE_SVG,   CH_PCDATA    }, /* for <svg> */
-  { TidyAttr_ZOOMANDPAN,              "zoomAndPan",              VERS_INLINE_SVG,   CH_PCDATA    }, /* for <svg> */
-  { TidyAttr_BASEPROFILE,             "baseProfile",             VERS_INLINE_SVG,   CH_PCDATA    }, /* for <svg> */
-  { TidyAttr_CONTENTSCRIPTTYPE,       "contentScriptType",       VERS_INLINE_SVG,   CH_PCDATA    }, /* for <svg> */
-  { TidyAttr_CONTENTSTYLETYPE,        "contentStyleType",        VERS_INLINE_SVG,   CH_PCDATA    }, /* for <svg> */
-#else
   { TidyAttr_VIEWBOX,                  "viewbox",                CH_PCDATA    }, /* for <svg> */
   { TidyAttr_PRESERVEASPECTRATIO,      "preserveaspectratio",    CH_PCDATA    }, /* for <svg> */
   { TidyAttr_ZOOMANDPAN,               "zoomandpan",             CH_PCDATA    }, /* for <svg> */
   { TidyAttr_BASEPROFILE,              "baseprofile",            CH_PCDATA    }, /* for <svg> */
   { TidyAttr_CONTENTSCRIPTTYPE,        "contentscripttype",      CH_PCDATA    }, /* for <svg> */
   { TidyAttr_CONTENTSTYLETYPE,         "contentstyletype",       CH_PCDATA    }, /* for <svg> */
-#endif
   { TidyAttr_DISPLAY,                  "display",                CH_PCDATA   }, /* on MATH tag (html5) */
 
   /* RDFa Attributes */
@@ -445,6 +455,24 @@ static const Attribute attribute_defs [] =
 
   /* for xmlns:xlink in <svg> */
   { TidyAttr_XMLNSXLINK,                "xmlns:xlink",           CH_URL       },
+  { TidyAttr_SLOT,                      "slot",                  CH_PCDATA    },
+  { TidyAttr_LOADING,                   "loading",               CH_LOADING   }, /* IMG, IFRAME */
+
+  /* SVG paint attributes (SVG 1.1) */
+  { TidyAttr_FILL,                     "fill",                  CH_SVG        },
+  { TidyAttr_FILLRULE,                 "fill-rule",             CH_SVG        },
+  { TidyAttr_STROKE,                   "stroke",                CH_SVG        },
+  { TidyAttr_STROKEDASHARRAY,          "stroke-dasharray",      CH_SVG        },
+  { TidyAttr_STROKEDASHOFFSET,         "stroke-dashoffset",     CH_SVG        },
+  { TidyAttr_STROKELINECAP,            "stroke-linecap",        CH_SVG        },
+  { TidyAttr_STROKELINEJOIN,           "stroke-linejoin",       CH_SVG        },
+  { TidyAttr_STROKEMITERLIMIT,         "stroke-miterlimit",     CH_SVG        },
+  { TidyAttr_STROKEWIDTH,              "stroke-width",          CH_SVG        },
+  { TidyAttr_COLORINTERPOLATION,       "color-interpolation",   CH_SVG        },
+  { TidyAttr_COLORRENDERING,           "color-rendering",       CH_SVG        },
+  { TidyAttr_OPACITY,                  "opacity",               CH_SVG        },
+  { TidyAttr_STROKEOPACITY,            "stroke-opacity",        CH_SVG        },
+  { TidyAttr_FILLOPACITY,              "fill-opacity",          CH_SVG        },
 
   /* this must be the final entry */
   { N_TIDY_ATTRIBS,                    NULL,                     NULL         }
@@ -566,7 +594,144 @@ static const struct _colors colors[] =
     { NULL,      NULL      }
 };
 
-static ctmbstr GetColorCode(ctmbstr name)
+static const struct _colors extended_colors[] =
+{
+    { "aliceblue", "#f0f8ff" },
+    { "antiquewhite", "#faebd7" },
+    { "aquamarine", "#7fffd4" },
+    { "azure", "#f0ffff" },
+    { "beige", "#f5f5dc" },
+    { "bisque", "#ffe4c4" },
+    { "blanchedalmond", "#ffebcd" },
+    { "blueviolet", "#8a2be2" },
+    { "brown", "#a52a2a" },
+    { "burlywood", "#deb887" },
+    { "cadetblue", "#5f9ea0" },
+    { "chartreuse", "#7fff00" },
+    { "chocolate", "#d2691e" },
+    { "coral", "#ff7f50" },
+    { "cornflowerblue", "#6495ed" },
+    { "cornsilk", "#fff8dc" },
+    { "crimson", "#dc143c" },
+    { "cyan", "#00ffff" },
+    { "darkblue", "#00008b" },
+    { "darkcyan", "#008b8b" },
+    { "darkgoldenrod", "#b8860b" },
+    { "darkgray", "#a9a9a9" },
+    { "darkgreen", "#006400" },
+    { "darkgrey", "#a9a9a9" },
+    { "darkkhaki", "#bdb76b" },
+    { "darkmagenta", "#8b008b" },
+    { "darkolivegreen", "#556b2f" },
+    { "darkorange", "#ff8c00" },
+    { "darkorchid", "#9932cc" },
+    { "darkred", "#8b0000" },
+    { "darksalmon", "#e9967a" },
+    { "darkseagreen", "#8fbc8f" },
+    { "darkslateblue", "#483d8b" },
+    { "darkslategray", "#2f4f4f" },
+    { "darkslategrey", "#2f4f4f" },
+    { "darkturquoise", "#00ced1" },
+    { "darkviolet", "#9400d3" },
+    { "deeppink", "#ff1493" },
+    { "deepskyblue", "#00bfff" },
+    { "dimgray", "#696969" },
+    { "dimgrey", "#696969" },
+    { "dodgerblue", "#1e90ff" },
+    { "firebrick", "#b22222" },
+    { "floralwhite", "#fffaf0" },
+    { "forestgreen", "#228b22" },
+    { "gainsboro", "#dcdcdc" },
+    { "ghostwhite", "#f8f8ff" },
+    { "gold", "#ffd700" },
+    { "goldenrod", "#daa520" },
+    { "greenyellow", "#adff2f" },
+    { "grey", "#808080" },
+    { "honeydew", "#f0fff0" },
+    { "hotpink", "#ff69b4" },
+    { "indianred", "#cd5c5c" },
+    { "indigo", "#4b0082" },
+    { "ivory", "#fffff0" },
+    { "khaki", "#f0e68c" },
+    { "lavender", "#e6e6fa" },
+    { "lavenderblush", "#fff0f5" },
+    { "lawngreen", "#7cfc00" },
+    { "lemonchiffon", "#fffacd" },
+    { "lightblue", "#add8e6" },
+    { "lightcoral", "#f08080" },
+    { "lightcyan", "#e0ffff" },
+    { "lightgoldenrodyellow", "#fafad2" },
+    { "lightgray", "#d3d3d3" },
+    { "lightgreen", "#90ee90" },
+    { "lightgrey", "#d3d3d3" },
+    { "lightpink", "#ffb6c1" },
+    { "lightsalmon", "#ffa07a" },
+    { "lightseagreen", "#20b2aa" },
+    { "lightskyblue", "#87cefa" },
+    { "lightslategray", "#778899" },
+    { "lightslategrey", "#778899" },
+    { "lightsteelblue", "#b0c4de" },
+    { "lightyellow", "#ffffe0" },
+    { "limegreen", "#32cd32" },
+    { "linen", "#faf0e6" },
+    { "magenta", "#ff00ff" },
+    { "mediumaquamarine", "#66cdaa" },
+    { "mediumblue", "#0000cd" },
+    { "mediumorchid", "#ba55d3" },
+    { "mediumpurple", "#9370db" },
+    { "mediumseagreen", "#3cb371" },
+    { "mediumslateblue", "#7b68ee" },
+    { "mediumspringgreen", "#00fa9a" },
+    { "mediumturquoise", "#48d1cc" },
+    { "mediumvioletred", "#c71585" },
+    { "midnightblue", "#191970" },
+    { "mintcream", "#f5fffa" },
+    { "mistyrose", "#ffe4e1" },
+    { "moccasin", "#ffe4b5" },
+    { "navajowhite", "#ffdead" },
+    { "oldlace", "#fdf5e6" },
+    { "olivedrab", "#6b8e23" },
+    { "orange", "#ffa500" },
+    { "orangered", "#ff4500" },
+    { "orchid", "#da70d6" },
+    { "palegoldenrod", "#eee8aa" },
+    { "palegreen", "#98fb98" },
+    { "paleturquoise", "#afeeee" },
+    { "palevioletred", "#db7093" },
+    { "papayawhip", "#ffefd5" },
+    { "peachpuff", "#ffdab9" },
+    { "peru", "#cd853f" },
+    { "pink", "#ffc0cb" },
+    { "plum", "#dda0dd" },
+    { "powderblue", "#b0e0e6" },
+    { "rebeccapurple", "#663399" },
+    { "rosybrown", "#bc8f8f" },
+    { "royalblue", "#4169e1" },
+    { "saddlebrown", "#8b4513" },
+    { "salmon", "#fa8072" },
+    { "sandybrown", "#f4a460" },
+    { "seagreen", "#2e8b57" },
+    { "seashell", "#fff5ee" },
+    { "sienna", "#a0522d" },
+    { "skyblue", "#87ceeb" },
+    { "slateblue", "#6a5acd" },
+    { "slategray", "#708090" },
+    { "slategrey", "#708090" },
+    { "snow", "#fffafa" },
+    { "springgreen", "#00ff7f" },
+    { "steelblue", "#4682b4" },
+    { "tan", "#d2b48c" },
+    { "thistle", "#d8bfd8" },
+    { "tomato", "#ff6347" },
+    { "turquoise", "#40e0d0" },
+    { "violet", "#ee82ee" },
+    { "wheat", "#f5deb3" },
+    { "whitesmoke", "#f5f5f5" },
+    { "yellowgreen", "#9acd32" },
+    { NULL, NULL }
+};
+
+static ctmbstr GetColorCode(ctmbstr name, Bool use_css_colors)
 {
     uint i;
 
@@ -574,10 +739,15 @@ static ctmbstr GetColorCode(ctmbstr name)
         if (TY_(tmbstrcasecmp)(name, colors[i].name) == 0)
             return colors[i].hex;
 
+    if (use_css_colors)
+        for (i = 0; extended_colors[i].name; ++i)
+            if (TY_(tmbstrcasecmp)(name, extended_colors[i].name) == 0)
+                return extended_colors[i].hex;
+
     return NULL;
 }
 
-static ctmbstr GetColorName(ctmbstr code)
+static ctmbstr GetColorName(ctmbstr code, Bool use_css_colors)
 {
     uint i;
 
@@ -585,157 +755,14 @@ static ctmbstr GetColorName(ctmbstr code)
         if (TY_(tmbstrcasecmp)(code, colors[i].hex) == 0)
             return colors[i].name;
 
+    if (use_css_colors)
+        for (i = 0; extended_colors[i].name; ++i)
+            if (TY_(tmbstrcasecmp)(code, extended_colors[i].hex) == 0)
+                return extended_colors[i].name;
+
     return NULL;
 }
 
-#if 0
-static const struct _colors fancy_colors[] =
-{
-    { "darkgreen",            "#006400" },
-    { "antiquewhite",         "#FAEBD7" },
-    { "aqua",                 "#00FFFF" },
-    { "aquamarine",           "#7FFFD4" },
-    { "azure",                "#F0FFFF" },
-    { "beige",                "#F5F5DC" },
-    { "bisque",               "#FFE4C4" },
-    { "black",                "#000000" },
-    { "blanchedalmond",       "#FFEBCD" },
-    { "blue",                 "#0000FF" },
-    { "blueviolet",           "#8A2BE2" },
-    { "brown",                "#A52A2A" },
-    { "burlywood",            "#DEB887" },
-    { "cadetblue",            "#5F9EA0" },
-    { "chartreuse",           "#7FFF00" },
-    { "chocolate",            "#D2691E" },
-    { "coral",                "#FF7F50" },
-    { "cornflowerblue",       "#6495ED" },
-    { "cornsilk",             "#FFF8DC" },
-    { "crimson",              "#DC143C" },
-    { "cyan",                 "#00FFFF" },
-    { "darkblue",             "#00008B" },
-    { "darkcyan",             "#008B8B" },
-    { "darkgoldenrod",        "#B8860B" },
-    { "darkgray",             "#A9A9A9" },
-    { "darkgreen",            "#006400" },
-    { "darkkhaki",            "#BDB76B" },
-    { "darkmagenta",          "#8B008B" },
-    { "darkolivegreen",       "#556B2F" },
-    { "darkorange",           "#FF8C00" },
-    { "darkorchid",           "#9932CC" },
-    { "darkred",              "#8B0000" },
-    { "darksalmon",           "#E9967A" },
-    { "darkseagreen",         "#8FBC8F" },
-    { "darkslateblue",        "#483D8B" },
-    { "darkslategray",        "#2F4F4F" },
-    { "darkturquoise",        "#00CED1" },
-    { "darkviolet",           "#9400D3" },
-    { "deeppink",             "#FF1493" },
-    { "deepskyblue",          "#00BFFF" },
-    { "dimgray",              "#696969" },
-    { "dodgerblue",           "#1E90FF" },
-    { "firebrick",            "#B22222" },
-    { "floralwhite",          "#FFFAF0" },
-    { "forestgreen",          "#228B22" },
-    { "fuchsia",              "#FF00FF" },
-    { "gainsboro",            "#DCDCDC" },
-    { "ghostwhite",           "#F8F8FF" },
-    { "gold",                 "#FFD700" },
-    { "goldenrod",            "#DAA520" },
-    { "gray",                 "#808080" },
-    { "green",                "#008000" },
-    { "greenyellow",          "#ADFF2F" },
-    { "honeydew",             "#F0FFF0" },
-    { "hotpink",              "#FF69B4" },
-    { "indianred",            "#CD5C5C" },
-    { "indigo",               "#4B0082" },
-    { "ivory",                "#FFFFF0" },
-    { "khaki",                "#F0E68C" },
-    { "lavender",             "#E6E6FA" },
-    { "lavenderblush",        "#FFF0F5" },
-    { "lawngreen",            "#7CFC00" },
-    { "lemonchiffon",         "#FFFACD" },
-    { "lightblue",            "#ADD8E6" },
-    { "lightcoral",           "#F08080" },
-    { "lightcyan",            "#E0FFFF" },
-    { "lightgoldenrodyellow", "#FAFAD2" },
-    { "lightgreen",           "#90EE90" },
-    { "lightgrey",            "#D3D3D3" },
-    { "lightpink",            "#FFB6C1" },
-    { "lightsalmon",          "#FFA07A" },
-    { "lightseagreen",        "#20B2AA" },
-    { "lightskyblue",         "#87CEFA" },
-    { "lightslategray",       "#778899" },
-    { "lightsteelblue",       "#B0C4DE" },
-    { "lightyellow",          "#FFFFE0" },
-    { "lime",                 "#00FF00" },
-    { "limegreen",            "#32CD32" },
-    { "linen",                "#FAF0E6" },
-    { "magenta",              "#FF00FF" },
-    { "maroon",               "#800000" },
-    { "mediumaquamarine",     "#66CDAA" },
-    { "mediumblue",           "#0000CD" },
-    { "mediumorchid",         "#BA55D3" },
-    { "mediumpurple",         "#9370DB" },
-    { "mediumseagreen",       "#3CB371" },
-    { "mediumslateblue",      "#7B68EE" },
-    { "mediumspringgreen",    "#00FA9A" },
-    { "mediumturquoise",      "#48D1CC" },
-    { "mediumvioletred",      "#C71585" },
-    { "midnightblue",         "#191970" },
-    { "mintcream",            "#F5FFFA" },
-    { "mistyrose",            "#FFE4E1" },
-    { "moccasin",             "#FFE4B5" },
-    { "navajowhite",          "#FFDEAD" },
-    { "navy",                 "#000080" },
-    { "oldlace",              "#FDF5E6" },
-    { "olive",                "#808000" },
-    { "olivedrab",            "#6B8E23" },
-    { "orange",               "#FFA500" },
-    { "orangered",            "#FF4500" },
-    { "orchid",               "#DA70D6" },
-    { "palegoldenrod",        "#EEE8AA" },
-    { "palegreen",            "#98FB98" },
-    { "paleturquoise",        "#AFEEEE" },
-    { "palevioletred",        "#DB7093" },
-    { "papayawhip",           "#FFEFD5" },
-    { "peachpuff",            "#FFDAB9" },
-    { "peru",                 "#CD853F" },
-    { "pink",                 "#FFC0CB" },
-    { "plum",                 "#DDA0DD" },
-    { "powderblue",           "#B0E0E6" },
-    { "purple",               "#800080" },
-    { "red",                  "#FF0000" },
-    { "rosybrown",            "#BC8F8F" },
-    { "royalblue",            "#4169E1" },
-    { "saddlebrown",          "#8B4513" },
-    { "salmon",               "#FA8072" },
-    { "sandybrown",           "#F4A460" },
-    { "seagreen",             "#2E8B57" },
-    { "seashell",             "#FFF5EE" },
-    { "sienna",               "#A0522D" },
-    { "silver",               "#C0C0C0" },
-    { "skyblue",              "#87CEEB" },
-    { "slateblue",            "#6A5ACD" },
-    { "slategray",            "#708090" },
-    { "snow",                 "#FFFAFA" },
-    { "springgreen",          "#00FF7F" },
-    { "steelblue",            "#4682B4" },
-    { "tan",                  "#D2B48C" },
-    { "teal",                 "#008080" },
-    { "thistle",              "#D8BFD8" },
-    { "tomato",               "#FF6347" },
-    { "turquoise",            "#40E0D0" },
-    { "violet",               "#EE82EE" },
-    { "wheat",                "#F5DEB3" },
-    { "white",                "#FFFFFF" },
-    { "whitesmoke",           "#F5F5F5" },
-    { "yellow",               "#FFFF00" },
-    { "yellowgreen",          "#9ACD32" },
-    { NULL,                   NULL      }
-};
-#endif
-
-#if ATTRIBUTE_HASH_LOOKUP
 static uint attrsHash(ctmbstr s)
 {
     uint hashval;
@@ -805,33 +832,24 @@ static void attrsEmptyHash( TidyDocImpl* doc, TidyAttribImpl * attribs )
         attribs->hashtab[i] = NULL;
     }
 }
-#endif
 
 static const Attribute* attrsLookup(TidyDocImpl* doc,
                                TidyAttribImpl* ARG_UNUSED(attribs),
                                ctmbstr atnam)
 {
     const Attribute *np;
-#if ATTRIBUTE_HASH_LOOKUP
     const AttrHash *p;
-#endif
 
     if (!atnam)
         return NULL;
 
-#if ATTRIBUTE_HASH_LOOKUP
     for (p = attribs->hashtab[attrsHash(atnam)]; p && p->attr; p = p->next)
-        if (TY_(tmbstrcmp)(atnam, p->attr->name) == 0)
+        if (TY_(tmbstrcasecmp)(atnam, p->attr->name) == 0)
             return p->attr;
 
     for (np = attribute_defs; np && np->name; ++np)
-        if (TY_(tmbstrcmp)(atnam, np->name) == 0)
+        if (TY_(tmbstrcasecmp)(atnam, np->name) == 0)
             return attrsInstall(doc, attribs, np);
-#else
-    for (np = attribute_defs; np && np->name; ++np)
-        if (TY_(tmbstrcmp)(atnam, np->name) == 0)
-            return np;
-#endif
 
     return NULL;
 }
@@ -925,6 +943,78 @@ AttVal* TY_(RepairAttrValue)(TidyDocImpl* doc, Node* node, ctmbstr name, ctmbstr
     else
         return TY_(AddAttribute)(doc, node, name, value);
 }
+
+
+void TY_(FreeAttrPriorityList)( TidyDocImpl* doc )
+{
+    PriorityAttribs *priorities = &(doc->attribs.priorityAttribs);
+
+    if ( priorities->list )
+    {
+        uint i = 0;
+        while ( priorities->list[i] != NULL )
+        {
+            TidyFree( doc->allocator, priorities->list[i] );
+            i++;
+        }
+
+        TidyFree( doc->allocator, priorities->list );
+    }
+}
+
+
+void TY_(DefinePriorityAttribute)(TidyDocImpl* doc, ctmbstr name)
+{
+    enum { capacity = 10 };
+    PriorityAttribs *priorities = &(doc->attribs.priorityAttribs);
+
+    if ( !priorities->list )
+    {
+        priorities->list = TidyAlloc(doc->allocator, sizeof(ctmbstr) * capacity );
+        priorities->list[0] = NULL;
+        priorities->capacity = capacity;
+        priorities->count = 0;
+    }
+
+    if ( priorities->count >= priorities->capacity )
+    {
+        priorities->capacity = priorities->capacity * 2;
+        priorities->list = TidyRealloc(doc->allocator, priorities->list, sizeof(tmbstr) * priorities->capacity + 1 );
+    }
+
+    priorities->list[priorities->count] = TY_(tmbstrdup)( doc->allocator, name);
+    priorities->count++;
+    priorities->list[priorities->count] = NULL;
+}
+
+
+TidyIterator TY_(getPriorityAttrList)( TidyDocImpl* doc )
+{
+    PriorityAttribs *priorities = &(doc->attribs.priorityAttribs);
+    size_t result = priorities->count > 0 ? 1 : 0;
+
+    return (TidyIterator) result;
+}
+
+
+ctmbstr  TY_(getNextPriorityAttr)( TidyDocImpl* doc, TidyIterator* iter )
+{
+    PriorityAttribs *priorities = &(doc->attribs.priorityAttribs);
+    size_t index;
+    ctmbstr result = NULL;
+    assert( iter != NULL );
+    index = (size_t)*iter;
+
+    if ( index > 0 && index <= priorities->count )
+    {
+        result = priorities->list[index-1];
+        index++;
+    }
+    *iter = (TidyIterator) ( index <= priorities->count ? index : (size_t)0 );
+
+    return result;
+}
+
 
 static Bool CheckAttrType( TidyDocImpl* doc,
                            ctmbstr attrname, AttrCheck type )
@@ -1088,13 +1178,16 @@ void TY_(RemoveAnchorByNode)( TidyDocImpl* doc, ctmbstr name, Node *node )
     FreeAnchor( doc, delme );
 }
 
-/* initialize new anchor */
+/* initialize new anchor 
+   Is. #726 & #185 - HTML5 is case-sensitive
+*/
 static Anchor* NewAnchor( TidyDocImpl* doc, ctmbstr name, Node* node )
 {
     Anchor *a = (Anchor*) TidyDocAlloc( doc, sizeof(Anchor) );
 
     a->name = TY_(tmbstrdup)( doc->allocator, name );
-    a->name = TY_(tmbstrtolower)(a->name);
+    if (!TY_(IsHTML5Mode)(doc)) /* Is. #726 - if NOT HTML5, to lowercase */
+        a->name = TY_(tmbstrtolower)(a->name);
     a->node = node;
     a->next = NULL;
 
@@ -1201,9 +1294,7 @@ static void FreeDeclaredAttributes( TidyDocImpl* doc )
     while ( NULL != (dict = attribs->declared_attr_list) )
     {
         attribs->declared_attr_list = dict->next;
-#if ATTRIBUTE_HASH_LOOKUP
         attrsRemoveFromHash( doc, &doc->attribs, dict->name );
-#endif
         TidyDocFree( doc, dict->name );
         TidyDocFree( doc, dict );
     }
@@ -1211,9 +1302,7 @@ static void FreeDeclaredAttributes( TidyDocImpl* doc )
 
 void TY_(FreeAttrTable)( TidyDocImpl* doc )
 {
-#if ATTRIBUTE_HASH_LOOKUP
     attrsEmptyHash( doc, &doc->attribs );
-#endif
     TY_(FreeAnchors)( doc );
     FreeDeclaredAttributes( doc );
 }
@@ -1241,13 +1330,13 @@ static void AppendToStyleAttr( TidyDocImpl* doc, AttVal *styleattr, ctmbstr styl
     /*
     this doesn't handle CSS comments and
     leading/trailing white-space very well
-    see http://www.w3.org/TR/css-style-attr
+    see https://www.w3.org/TR/css-style-attr/
     */
     uint end = TY_(tmbstrlen)(styleattr->value);
 
     if (end >0 && styleattr->value[end - 1] == ';')
     {
-        /* attribute ends with declaration seperator */
+        /* attribute ends with declaration separator */
 
         styleattr->value = (tmbstr) TidyDocRealloc(doc, styleattr->value,
             end + TY_(tmbstrlen)(styleprop) + 2);
@@ -1471,17 +1560,75 @@ static void CheckLowerCaseAttrValue( TidyDocImpl* doc, Node *node, AttVal *attva
     }
 }
 
-/* methods for checking value of a specific attribute */
+/* Issue #588 - use simple macros only!
+   Seems 'isalnum(c)' is undefined and can
+   cause an assert or a SIGSEGV in some libraries
+   if 'c' is not EOF, or in the range 0 to 0xff,
+   so avoid using it.
+*/
+#define ISUPPER(a) ((a >= 'A') && (a <= 'Z'))
+#define ISLOWER(a) ((a >= 'a') && (a <= 'z'))
+#define ISNUMERIC(a) ((a >= '0') && (a <= '9'))
+#define ISALNUM(a) (ISUPPER(a) || ISLOWER(a) || ISNUMERIC(a))
+
+static Bool IsURLCodePoint( ctmbstr p, uint *increment )
+{
+    uint c;
+    *increment = TY_(GetUTF8)( p, &c ) + 1;
+
+    return ISALNUM( c ) ||
+        c == '%' ||    /* not a valid codepoint, but an escape sequence */
+        c == '#' ||    /* not a valid codepoint, but a delimiter */
+        c == '!' ||
+        c == '$' ||
+        c == '&' ||
+        c == '\'' ||
+        c == '(' ||
+        c == ')' ||
+        c == '*' ||
+        c == '+' ||
+        c == ',' ||
+        c == '-' ||
+        c == '.' ||
+        c == '/' ||
+        c == ':' ||
+        c == ';' ||
+        c == '=' ||
+        c == '?' ||
+        c == '@' ||
+        c == '_' ||
+        c == '~' ||
+        (c >= 0x00A0 && c <= 0xD7FF) ||
+        (c >= 0xE000 && c <= 0xFDCF) ||
+        (c >= 0xFDF0 && c <= 0xFFEF) ||
+        (c >= 0x10000 && c <= 0x1FFFD) ||
+        (c >= 0x20000 && c <= 0x2FFFD) ||
+        (c >= 0x30000 && c <= 0x3FFFD) ||
+        (c >= 0x40000 && c <= 0x4FFFD) ||
+        (c >= 0x50000 && c <= 0x5FFFD) ||
+        (c >= 0x60000 && c <= 0x6FFFD) ||
+        (c >= 0x70000 && c <= 0x7FFFD) ||
+        (c >= 0x80000 && c <= 0x8FFFD) ||
+        (c >= 0x90000 && c <= 0x9FFFD) ||
+        (c >= 0xA0000 && c <= 0xAFFFD) ||
+        (c >= 0xB0000 && c <= 0xBFFFD) ||
+        (c >= 0xC0000 && c <= 0xCFFFD) ||
+        (c >= 0xD0000 && c <= 0xDFFFD) ||
+        (c >= 0xE0000 && c <= 0xEFFFD) ||
+        (c >= 0xF0000 && c <= 0xFFFFD) ||
+        (c >= 0x100000 && c <= 0x10FFFD);
+}
 
 void TY_(CheckUrl)( TidyDocImpl* doc, Node *node, AttVal *attval)
 {
-    tmbchar c; 
+    tmbchar c;
     tmbstr dest, p;
-    uint escape_count = 0, backslash_count = 0;
+    uint escape_count = 0, backslash_count = 0, bad_codepoint_count = 0;
     uint i, pos = 0;
     uint len;
+    uint increment;
     Bool isJavascript = no;
-    
+
     if (!AttrHasValue(attval))
     {
         TY_(ReportAttrError)( doc, node, attval, MISSING_ATTR_VALUE);
@@ -1489,7 +1636,7 @@ void TY_(CheckUrl)( TidyDocImpl* doc, Node *node, AttVal *attval)
     }
 
     p = attval->value;
-    
+
     isJavascript =
         TY_(tmbstrncmp)(p,"javascript:",sizeof("javascript:")-1)==0;
 
@@ -1504,6 +1651,14 @@ void TY_(CheckUrl)( TidyDocImpl* doc, Node *node, AttVal *attval)
         else if ((c > 0x7e) || (c <= 0x20) || (strchr("<>", c)))
             ++escape_count;
     }
+
+    while ( *p != 0 )
+    {
+        if ( !IsURLCodePoint( p, &increment ) )
+            ++bad_codepoint_count;
+         p = p + increment;
+    }
+    p = attval->value;
 
     if ( cfgBool(doc, TidyFixUri) && escape_count )
     {
@@ -1549,10 +1704,14 @@ void TY_(CheckUrl)( TidyDocImpl* doc, Node *node, AttVal *attval)
     {
         if ( cfgBool(doc, TidyFixUri) )
             TY_(ReportAttrError)( doc, node, attval, ESCAPED_ILLEGAL_URI);
-        else
+        else if ( !(TY_(HTMLVersion)(doc) & VERS_HTML5) )
             TY_(ReportAttrError)( doc, node, attval, ILLEGAL_URI_REFERENCE);
 
         doc->badChars |= BC_INVALID_URI;
+    }
+    if ( bad_codepoint_count )
+    {
+        TY_(ReportAttrError)( doc, node, attval, ILLEGAL_URI_CODEPOINT );
     }
 }
 
@@ -1684,7 +1843,10 @@ void CheckName( TidyDocImpl* doc, Node *node, AttVal *attval)
 
         if ((old = GetNodeByAnchor(doc, attval->value)) &&  old != node)
         {
-            TY_(ReportAttrError)( doc, node, attval, ANCHOR_NOT_UNIQUE);
+            if (node->implicit) /* Is #709 - improve warning text */
+                TY_(ReportAttrError)(doc, node, attval, ANCHOR_DUPLICATED);
+            else
+                TY_(ReportAttrError)( doc, node, attval, ANCHOR_NOT_UNIQUE);
         }
         else
             AddAnchor( doc, attval->value, node );
@@ -1712,10 +1874,47 @@ void CheckId( TidyDocImpl* doc, Node *node, AttVal *attval )
 
     if ((old = GetNodeByAnchor(doc, attval->value)) &&  old != node)
     {
-        TY_(ReportAttrError)( doc, node, attval, ANCHOR_NOT_UNIQUE);
+        if (node->implicit) /* Is #709 - improve warning text */
+            TY_(ReportAttrError)(doc, node, attval, ANCHOR_DUPLICATED);
+        else
+            TY_(ReportAttrError)( doc, node, attval, ANCHOR_NOT_UNIQUE);
     }
     else
         AddAnchor( doc, attval->value, node );
+}
+
+void CheckIs( TidyDocImpl* doc, Node *node, AttVal *attval )
+{
+    const char *ptr;
+    Bool go = yes;
+
+    /* `is` MUST NOT be in an autonomous custom tag */
+    ptr = strchr(node->element, '-');
+    if ( ( ptr && (ptr - node->element > 0) ) )
+    {
+        TY_(ReportAttrError)( doc, node, attval, ATTRIBUTE_IS_NOT_ALLOWED);
+    }
+
+    /* Even if we fail the above test, we'll continue to emit reports because
+       the user should *also* know that his attribute values are wrong, even
+       if they shouldn't be in custom tags anyway. */
+
+    /* `is` MUST have a value */
+    if (!AttrHasValue(attval))
+    {
+        TY_(ReportAttrError)( doc, node, attval, MISSING_ATTR_VALUE);
+        return;
+    }
+
+    /* `is` MUST contain a hyphen and no space. */
+    ptr = strchr(attval->value, '-');
+    go = ( ptr && (ptr - attval->value > 0) );
+    ptr = strchr(attval->value, ' ');
+    go = go & (ptr == NULL);
+    if ( !go )
+    {
+        TY_(ReportAttrError)( doc, node, attval, BAD_ATTRIBUTE_VALUE);
+    }
 }
 
 void CheckBool( TidyDocImpl* doc, Node *node, AttVal *attval)
@@ -1814,13 +2013,19 @@ void CheckLength( TidyDocImpl* doc, Node *node, AttVal *attval)
     }
     else
     {
+        Bool percentFound = no;
         while (*p)
         {
-            if (!TY_(IsDigit)(*p) && *p != '%')
+            if (!percentFound && *p == '%')
+            {
+                percentFound = yes;
+            }
+            else if (percentFound || !TY_(IsDigit)(*p))
             {
                 TY_(ReportAttrError)( doc, node, attval, BAD_ATTRIBUTE_VALUE);
                 break;
             }
+
             ++p;
         }
     }
@@ -1901,7 +2106,7 @@ void CheckNumber( TidyDocImpl* doc, Node *node, AttVal *attval)
     /* font size may be preceded by + or - */
     if ( nodeIsFONT(node) && (*p == '+' || *p == '-') )
         ++p;
-    /* tabindex may be preceeded by - */
+    /* tabindex may be preceded by - */
     if (attval->attribute && (strcmp(attval->attribute,"tabindex") == 0) && (*p == '-'))
         ++p;
 
@@ -1967,7 +2172,7 @@ void CheckColor( TidyDocImpl* doc, Node *node, AttVal *attval)
 
     if (valid && given[0] == '#' && cfgBool(doc, TidyReplaceColor))
     {
-        ctmbstr newName = GetColorName(given);
+        ctmbstr newName = GetColorName(given, TY_(IsHTML5Mode)(doc));
 
         if (newName)
         {
@@ -1978,7 +2183,7 @@ void CheckColor( TidyDocImpl* doc, Node *node, AttVal *attval)
 
     /* if it is not a valid color code, it is a color name */
     if (!valid)
-        valid = GetColorCode(given) != NULL;
+        valid = GetColorCode(given, TY_(IsHTML5Mode)(doc)) != NULL;
 
     if (valid && given[0] == '#')
         attval->value = TY_(tmbstrtoupper)(attval->value);
@@ -2006,8 +2211,11 @@ void CheckScroll( TidyDocImpl* doc, Node *node, AttVal *attval)
 /* checks dir attribute */
 void CheckTextDir( TidyDocImpl* doc, Node *node, AttVal *attval)
 {
-    ctmbstr const values[] = {"rtl", "ltr", NULL};
-    CheckAttrValidity( doc, node, attval, values );
+    ctmbstr const values4[] = { "rtl", "ltr", NULL };
+    /* PR #712 - add 'auto' for HTML5 - @doronbehar */
+    ctmbstr const values5[] = { "rtl", "ltr", "auto", NULL };
+    CheckAttrValidity(doc, node, attval,
+        (TY_(IsHTML5Mode)(doc) ? values5 : values4));
 }
 
 /* checks lang and xml:lang attributes */
@@ -2022,6 +2230,13 @@ void CheckLang( TidyDocImpl* doc, Node *node, AttVal *attval)
         }
         return;
     }
+}
+
+/* checks loading attribute */
+void CheckLoading( TidyDocImpl* doc, Node *node, AttVal *attval)
+{
+    ctmbstr const values[] = {"lazy", "eager", NULL};
+    CheckAttrValidity( doc, node, attval, values );
 }
 
 /* checks type attribute */
@@ -2067,16 +2282,191 @@ void CheckType( TidyDocImpl* doc, Node *node, AttVal *attval)
     return;
 }
 
-static
-AttVal *SortAttVal( AttVal* list, TidyAttrSortStrategy strat );
+static void CheckDecimal( TidyDocImpl* doc, Node *node, AttVal *attval)
+{
+    tmbstr p;
+    Bool hasPoint = no;
 
-void TY_(SortAttributes)(Node* node, TidyAttrSortStrategy strat)
+    p  = attval->value;
+
+    /* Allow leading sign */
+    if (*p == '+' || *p == '-')
+        ++p;
+
+    while (*p)
+    {
+        /* Allow a single decimal point */
+        if (*p == '.')
+        {
+            if (!hasPoint)
+                hasPoint = yes;
+            else {
+                TY_(ReportAttrError)( doc, node, attval, BAD_ATTRIBUTE_VALUE);
+                break;
+            }
+        }
+        
+        if (!TY_(IsDigit)(*p))
+        {
+            TY_(ReportAttrError)( doc, node, attval, BAD_ATTRIBUTE_VALUE);
+            break;
+        }
+        ++p;
+    }
+}
+
+static Bool IsSvgPaintAttr(AttVal *attval)
+{
+    return attrIsCOLOR(attval)
+        || attrIsSVG_FILL(attval)
+        || attrIsSVG_FILLRULE(attval)
+        || attrIsSVG_STROKE(attval)
+        || attrIsSVG_STROKEDASHARRAY(attval)
+        || attrIsSVG_STROKEDASHOFFSET(attval)
+        || attrIsSVG_STROKELINECAP(attval)
+        || attrIsSVG_STROKELINEJOIN(attval)
+        || attrIsSVG_STROKEMITERLIMIT(attval)
+        || attrIsSVG_STROKEWIDTH(attval)
+        || attrIsSVG_COLORINTERPOLATION(attval)
+        || attrIsSVG_COLORRENDERING(attval)
+        || attrIsSVG_OPACITY(attval)
+        || attrIsSVG_STROKEOPACITY(attval)
+        || attrIsSVG_FILLOPACITY(attval);
+}
+
+/* Check SVG attributes */
+static void CheckSvgAttr( TidyDocImpl* doc, Node *node, AttVal *attval)
+{
+    if (!nodeIsSVG(node))
+    {
+        TY_(ReportAttrError)(doc, node, attval, ATTRIBUTE_IS_NOT_ALLOWED);
+        return;
+    }
+
+    /* Issue #903 - check SVG paint attributes */
+    if (IsSvgPaintAttr(attval))
+    {
+        /* all valid paint attributes have values */
+        if (!AttrHasValue(attval))
+        {
+            TY_(ReportAttrError)(doc, node, attval, MISSING_ATTR_VALUE);
+            return;
+        }
+        /* all paint attributes support an 'inherit' value,
+        per https://dev.w3.org/SVG/profiles/1.1F2/publish/painting.html#SpecifyingPaint */
+        if (AttrValueIs(attval, "inherit"))
+        {
+            return;
+        }
+
+        /* check paint datatypes
+        see https://dev.w3.org/SVG/profiles/1.1F2/publish/painting.html#SpecifyingPaint
+        */
+        if (attrIsSVG_FILL(attval) || attrIsSVG_STROKE(attval))
+        {
+            /* TODO: support funciri */
+            static ctmbstr const values[] = {
+                "none", "currentColor", NULL};
+
+            if (AttrValueIsAmong(attval, values))
+                CheckLowerCaseAttrValue(doc, node, attval);
+            else
+                CheckColor(doc, node, attval);
+        } 
+        else if (attrIsSVG_FILLRULE(attval))
+        {
+            static ctmbstr const values[] = {"nonzero", "evenodd", NULL};
+
+            if (AttrValueIsAmong(attval, values))
+                CheckLowerCaseAttrValue(doc, node, attval);
+            else
+                TY_(ReportAttrError)(doc, node, attval, BAD_ATTRIBUTE_VALUE);
+        }
+        else if (attrIsSVG_STROKEDASHARRAY(attval))
+        {
+            static ctmbstr const values[] = {"none", NULL};
+
+            if (AttrValueIsAmong(attval, values))
+                CheckLowerCaseAttrValue(doc, node, attval);
+            else
+            {
+                /* TODO: process dash arrays */
+            }
+        }
+        else if (attrIsSVG_STROKEDASHOFFSET(attval))
+        {
+            CheckLength(doc, node, attval);
+        }
+        else if (attrIsSVG_STROKELINECAP(attval))
+        {
+            static ctmbstr const values[] = {"butt", "round", "square", NULL};
+
+            if (AttrValueIsAmong(attval, values))
+                CheckLowerCaseAttrValue(doc, node, attval);
+            else
+                TY_(ReportAttrError)(doc, node, attval, BAD_ATTRIBUTE_VALUE);
+        }
+        else if (attrIsSVG_STROKELINEJOIN(attval))
+        {
+            static ctmbstr const values[] = {"miter", "round", "bevel", NULL};
+
+            if (AttrValueIsAmong(attval, values))
+                CheckLowerCaseAttrValue(doc, node, attval);
+            else
+                TY_(ReportAttrError)(doc, node, attval, BAD_ATTRIBUTE_VALUE);
+        }
+        else if (attrIsSVG_STROKEMITERLIMIT(attval))
+        {
+            CheckNumber(doc, node, attval);
+        }
+        else if (attrIsSVG_STROKEWIDTH(attval))
+        {
+            CheckLength(doc, node, attval);
+        }
+        else if (attrIsSVG_COLORINTERPOLATION(attval))
+        {
+            static ctmbstr const values[] = {"auto", "sRGB", "linearRGB", NULL};
+
+            if (AttrValueIsAmong(attval, values))
+                CheckLowerCaseAttrValue(doc, node, attval);
+            else
+                TY_(ReportAttrError)(doc, node, attval, BAD_ATTRIBUTE_VALUE);
+        }
+        else if (attrIsSVG_COLORRENDERING(attval))
+        {
+            static ctmbstr const values[] = {
+                "auto", "optimizeSpeed", "optimizeQuality", NULL};
+
+            if (AttrValueIsAmong(attval, values))
+                CheckLowerCaseAttrValue(doc, node, attval);
+            else
+                TY_(ReportAttrError)(doc, node, attval, BAD_ATTRIBUTE_VALUE);
+        }
+        else if(attrIsSVG_OPACITY(attval))
+        {
+            CheckDecimal(doc, node, attval);
+        }
+        else if(attrIsSVG_STROKEOPACITY(attval))
+        {
+            CheckDecimal(doc, node, attval);
+        }
+        else if(attrIsSVG_FILLOPACITY(attval))
+        {
+            CheckDecimal(doc, node, attval);
+        }
+    }
+}
+
+static
+AttVal *SortAttVal( TidyDocImpl* doc, AttVal* list, TidyAttrSortStrategy strat );
+
+void TY_(SortAttributes)(TidyDocImpl* doc, Node* node, TidyAttrSortStrategy strat)
 {
     while (node)
     {
-        node->attributes = SortAttVal( node->attributes, strat );
+        node->attributes = SortAttVal( doc, node->attributes, strat );
         if (node->content)
-            TY_(SortAttributes)(node->content, strat);
+            TY_(SortAttributes)(doc, node->content, strat);
         node = node->next;
     }
 }
@@ -2086,8 +2476,8 @@ void TY_(SortAttributes)(Node* node, TidyAttrSortStrategy strat)
 * 
 * Portions copyright Simon Tatham 2001.
 *
-* Merge sort algortithm adpated from listsort.c linked from 
-* http://www.chiark.greenend.org.uk/~sgtatham/algorithms/listsort.html
+* Merge sort algorithm adapted from listsort.c linked from 
+* https://www.chiark.greenend.org.uk/~sgtatham/algorithms/listsort.html
 * 
 * Original copyright notice proceeds below.
 * 
@@ -2113,25 +2503,88 @@ void TY_(SortAttributes)(Node* node, TidyAttrSortStrategy strat)
 * SOFTWARE.
 */
 
-typedef int(*ptAttValComparator)(AttVal *one, AttVal *two);
+typedef int(*ptAttValComparator)(AttVal *one, AttVal *two, ctmbstr *list);
 
-/* Comparison function for TidySortAttrAlpha */
+/* Returns the index of the item in the array, or -1 if not in the array */
 static
-int AlphaComparator(AttVal *one, AttVal *two)
+int indexof( ctmbstr item, ctmbstr *list )
 {
+    if ( list )
+    {
+        uint i = 0;
+        while ( list[i] != NULL ) {
+            if ( TY_(tmbstrcasecmp)(item, list[i]) == 0 )
+                return i;
+            i++;
+        }
+    }
+
+    return -1;
+}
+
+/* Comparison function for TidySortAttrAlpha. Will also consider items in
+   the passed in list as higher-priority, and will group them first.
+ */
+static
+int AlphaComparator(AttVal *one, AttVal *two, ctmbstr *list)
+{
+    int oneIndex = indexof( one->attribute, list );
+    int twoIndex = indexof( two->attribute, list );
+
+    /* If both on the list, the lower index has priority. */
+    if ( oneIndex >= 0 && twoIndex >= 0 )
+        return oneIndex < twoIndex ? -1 : 1;
+
+    /* If A on the list but B not on the list, then A has priority. */
+    if ( oneIndex >= 0 && twoIndex == -1 )
+        return -1;
+
+    /* If A not on the list but B is on the list, then B has priority. */
+    if ( oneIndex == -1 && twoIndex >= 0 )
+        return 1;
+
+    /* Otherwise nothing is on the list, so just compare strings. */
     return TY_(tmbstrcmp)(one->attribute, two->attribute);
+}
+
+
+/* Comparison function for prioritizing list items. It doesn't otherwise
+   sort.
+ */
+static
+int PriorityComparator(AttVal *one, AttVal *two, ctmbstr *list)
+{
+    int oneIndex = indexof( one->attribute, list );
+    int twoIndex = indexof( two->attribute, list );
+
+    /* If both on the list, the lower index has priority. */
+    if ( oneIndex >= 0 && twoIndex >= 0 )
+        return oneIndex < twoIndex ? -1 : 1;
+
+    /* If A on the list but B not on the list, then A has priority. */
+    if ( oneIndex >= 0 && twoIndex == -1 )
+        return -1;
+
+    /* If A not on the list but B is on the list, then B has priority. */
+    if ( oneIndex == -1 && twoIndex >= 0 )
+        return 1;
+
+    /* Otherwise nothing is on the list, so just mark them as the same. */
+    return 0;
 }
 
 
 /* The "factory method" that returns a pointer to the comparator function */
 static
-ptAttValComparator GetAttValComparator(TidyAttrSortStrategy strat)
+ptAttValComparator GetAttValComparator(TidyAttrSortStrategy strat, ctmbstr *list)
 {
     switch (strat)
     {
     case TidySortAttrAlpha:
         return AlphaComparator;
     case TidySortAttrNone:
+        if ( list && list[0] )
+            return PriorityComparator;
         break;
     }
     return 0;
@@ -2139,9 +2592,12 @@ ptAttValComparator GetAttValComparator(TidyAttrSortStrategy strat)
 
 /* The sort routine */
 static
-AttVal *SortAttVal( AttVal *list, TidyAttrSortStrategy strat)
+AttVal *SortAttVal( TidyDocImpl* doc, AttVal *list, TidyAttrSortStrategy strat)
 {
-    ptAttValComparator ptComparator = GetAttValComparator(strat);
+    /* Get the list from the passed-in tidyDoc. */
+    ctmbstr* priorityList = (ctmbstr*)doc->attribs.priorityAttribs.list;
+
+    ptAttValComparator ptComparator = GetAttValComparator(strat, priorityList);
     AttVal *p, *q, *e, *tail;
     int insize, nmerges, psize, qsize, i;
 
@@ -2151,6 +2607,10 @@ AttVal *SortAttVal( AttVal *list, TidyAttrSortStrategy strat)
     */
     if (!list)
         return NULL;
+
+    /* If no comparator, return the list as-is */
+    if (ptComparator == 0)
+        return list;
 
     insize = 1;
 
@@ -2185,7 +2645,7 @@ AttVal *SortAttVal( AttVal *list, TidyAttrSortStrategy strat)
                 } else if (qsize == 0 || !q) {
                     /* q is empty; e must come from p. */
                     e = p; p = p->next; psize--;
-                } else if (ptComparator(p,q) <= 0) {
+                } else if (ptComparator(p,q, priorityList) <= 0) {
                     /* First element of p is lower (or same);
                     * e must come from p. */
                     e = p; p = p->next; psize--;
@@ -2309,6 +2769,12 @@ void CheckRDFaSafeCURIE ( TidyDocImpl* doc, Node *node, AttVal *attval)
         return;
     }
 
+}
+
+void CheckRefPol ( TidyDocImpl* doc, Node *node, AttVal *attval)
+{
+    ctmbstr const values[] = {"no-referrer", "no-referrer-when-downgrade", "same-origin", "origin", "strict-origin", "origin-when-cross-origin", "strict-origin-when-cross-origin", "unsafe-url", NULL};
+    CheckAttrValidity( doc, node, attval, values );
 }
 
 /*

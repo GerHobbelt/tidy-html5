@@ -36,11 +36,6 @@ struct _Anchor
 
 typedef struct _Anchor Anchor;
 
-#if !defined(ATTRIBUTE_HASH_LOOKUP)
-#define ATTRIBUTE_HASH_LOOKUP 1
-#endif
-
-#if ATTRIBUTE_HASH_LOOKUP
 enum
 {
     ATTRIBUTE_HASH_SIZE=178u
@@ -53,12 +48,18 @@ struct _AttrHash
 };
 
 typedef struct _AttrHash AttrHash;
-#endif
 
 enum
 {
     ANCHOR_HASH_SIZE=1021u
 };
+
+/* Keeps a list of attributes that are sorted ahead of the others. */
+typedef struct _priorityAttribs {
+    tmbstr* list;
+    uint count;
+    uint capacity;
+} PriorityAttribs;
 
 struct _TidyAttribImpl
 {
@@ -68,39 +69,49 @@ struct _TidyAttribImpl
     /* Declared literal attributes */
     Attribute* declared_attr_list;
 
-#if ATTRIBUTE_HASH_LOOKUP
+    /* Prioritized list of attributes to write */
+    PriorityAttribs priorityAttribs;
+
     AttrHash*  hashtab[ATTRIBUTE_HASH_SIZE];
-#endif
 };
 
 typedef struct _TidyAttribImpl TidyAttribImpl;
 
 #define XHTML_NAMESPACE "http://www.w3.org/1999/xhtml"
 
-AttrCheck TY_(CheckUrl);
+TY_PRIVATE AttrCheck TY_(CheckUrl);
 
 /* public method for finding attribute definition by name */
-const Attribute* TY_(CheckAttribute)( TidyDocImpl* doc, Node *node, AttVal *attval );
+TY_PRIVATE const Attribute* TY_(CheckAttribute)( TidyDocImpl* doc, Node *node, AttVal *attval );
 
-const Attribute* TY_(FindAttribute)( TidyDocImpl* doc, AttVal *attval );
+TY_PRIVATE const Attribute* TY_(FindAttribute)( TidyDocImpl* doc, AttVal *attval );
 
-AttVal* TY_(GetAttrByName)( Node *node, ctmbstr name );
+TY_PRIVATE AttVal* TY_(GetAttrByName)( Node *node, ctmbstr name );
 
-void TY_(DropAttrByName)( TidyDocImpl* doc, Node *node, ctmbstr name );
+TY_PRIVATE void TY_(DropAttrByName)( TidyDocImpl* doc, Node *node, ctmbstr name );
 
-AttVal* TY_(AddAttribute)( TidyDocImpl* doc,
+TY_PRIVATE AttVal* TY_(AddAttribute)( TidyDocImpl* doc,
                            Node *node, ctmbstr name, ctmbstr value );
 
-AttVal* TY_(RepairAttrValue)(TidyDocImpl* doc, Node* node, ctmbstr name, ctmbstr value);
+TY_PRIVATE AttVal* TY_(RepairAttrValue)(TidyDocImpl* doc, Node* node, ctmbstr name, ctmbstr value);
 
-Bool TY_(IsUrl)( TidyDocImpl* doc, ctmbstr attrname );
+/* Add an item to the list of priority attributes to write first. */
+TY_PRIVATE void TY_(DefinePriorityAttribute)(TidyDocImpl* doc, ctmbstr name);
+
+/* Start an iterator for priority attributes. */
+TY_PRIVATE TidyIterator TY_(getPriorityAttrList)( TidyDocImpl* doc );
+
+/* Get the next priority attribute. */
+TY_PRIVATE ctmbstr TY_(getNextPriorityAttr)( TidyDocImpl* doc, TidyIterator* iter );
+
+TY_PRIVATE Bool TY_(IsUrl)( TidyDocImpl* doc, ctmbstr attrname );
 
 /* Bool IsBool( TidyDocImpl* doc, ctmbstr attrname ); */
 
-Bool TY_(IsScript)( TidyDocImpl* doc, ctmbstr attrname );
+TY_PRIVATE Bool TY_(IsScript)( TidyDocImpl* doc, ctmbstr attrname );
 
 /* may id or name serve as anchor? */
-Bool TY_(IsAnchorElement)( TidyDocImpl* doc, Node* node );
+TY_PRIVATE Bool TY_(IsAnchorElement)( TidyDocImpl* doc, Node* node );
 
 /*
   In CSS1, selectors can contain only the characters A-Z, 0-9, and
@@ -116,39 +127,41 @@ Bool TY_(IsAnchorElement)( TidyDocImpl* doc, Node* node );
 
   #508936 - CSS class naming for -clean option
 */
-Bool TY_(IsCSS1Selector)( ctmbstr buf );
+TY_PRIVATE Bool TY_(IsCSS1Selector)( ctmbstr buf );
 
-Bool TY_(IsValidHTMLID)(ctmbstr id);
-Bool TY_(IsValidXMLID)(ctmbstr id);
+TY_PRIVATE Bool TY_(IsValidHTMLID)(ctmbstr id);
+TY_PRIVATE Bool TY_(IsValidXMLID)(ctmbstr id);
 
 /* removes anchor for specific node */
-void TY_(RemoveAnchorByNode)( TidyDocImpl* doc, ctmbstr name, Node *node );
+TY_PRIVATE void TY_(RemoveAnchorByNode)( TidyDocImpl* doc, ctmbstr name, Node *node );
 
 /* free all anchors */
-void TY_(FreeAnchors)( TidyDocImpl* doc );
+TY_PRIVATE void TY_(FreeAnchors)( TidyDocImpl* doc );
 
 
 /* public methods for inititializing/freeing attribute dictionary */
-void TY_(InitAttrs)( TidyDocImpl* doc );
-void TY_(FreeAttrTable)( TidyDocImpl* doc );
+TY_PRIVATE void TY_(InitAttrs)( TidyDocImpl* doc );
+TY_PRIVATE void TY_(FreeAttrTable)( TidyDocImpl* doc );
 
-void TY_(AppendToClassAttr)( TidyDocImpl* doc, AttVal *classattr, ctmbstr classname );
+TY_PRIVATE void TY_(FreeAttrPriorityList)( TidyDocImpl* doc );
+
+TY_PRIVATE void TY_(AppendToClassAttr)( TidyDocImpl* doc, AttVal *classattr, ctmbstr classname );
 /*
  the same attribute name can't be used
  more than once in each element
 */
-void TY_(RepairDuplicateAttributes)( TidyDocImpl* doc, Node* node, Bool isXml );
-void TY_(SortAttributes)(Node* node, TidyAttrSortStrategy strat);
+TY_PRIVATE void TY_(RepairDuplicateAttributes)( TidyDocImpl* doc, Node* node, Bool isXml );
+TY_PRIVATE void TY_(SortAttributes)(TidyDocImpl* doc, Node* node, TidyAttrSortStrategy strat);
 
-Bool TY_(IsBoolAttribute)( AttVal* attval );
-Bool TY_(attrIsEvent)( AttVal* attval );
+TY_PRIVATE Bool TY_(IsBoolAttribute)( AttVal* attval );
+TY_PRIVATE Bool TY_(attrIsEvent)( AttVal* attval );
 
-AttVal* TY_(AttrGetById)( Node* node, TidyAttrId id );
+TY_PRIVATE AttVal* TY_(AttrGetById)( Node* node, TidyAttrId id );
 
-uint TY_(NodeAttributeVersions)( Node* node, TidyAttrId id );
+TY_PRIVATE uint TY_(NodeAttributeVersions)( Node* node, TidyAttrId id );
 
-Bool TY_(AttributeIsProprietary)(Node* node, AttVal* attval);
-Bool TY_(AttributeIsMismatched)(Node* node, AttVal* attval, TidyDocImpl* doc);
+TY_PRIVATE Bool TY_(AttributeIsProprietary)(Node* node, AttVal* attval);
+TY_PRIVATE Bool TY_(AttributeIsMismatched)(Node* node, AttVal* attval, TidyDocImpl* doc);
 
 
 /* 0 == TidyAttr_UNKNOWN  */
@@ -184,6 +197,7 @@ Bool TY_(AttributeIsMismatched)(Node* node, AttVal* attval, TidyDocImpl* doc);
 #define attrIsBOTTOMMARGIN(av)      AttrIsId( av, TidyAttr_BOTTOMMARGIN  )
 #define attrIsCELLPADDING(av)       AttrIsId( av, TidyAttr_CELLPADDING  )
 #define attrIsCELLSPACING(av)       AttrIsId( av, TidyAttr_CELLSPACING  )
+#define attrIsCHARSET(av)           AttrIsId( av, TidyAttr_CHARSET  )
 #define attrIsCHAR(av)              AttrIsId( av, TidyAttr_CHAR  )
 #define attrIsCHAROFF(av)           AttrIsId( av, TidyAttr_CHAROFF  )
 #define attrIsCHARSET(av)           AttrIsId( av, TidyAttr_CHARSET  )
@@ -301,6 +315,7 @@ Bool TY_(AttributeIsMismatched)(Node* node, AttVal* attval, TidyDocImpl* doc);
 #define attrIsSHOWGRIDX(av)         AttrIsId( av, TidyAttr_SHOWGRIDX  )
 #define attrIsSHOWGRIDY(av)         AttrIsId( av, TidyAttr_SHOWGRIDY  )
 #define attrIsSIZE(av)              AttrIsId( av, TidyAttr_SIZE  )
+#define attrIsSLOT(av)              AttrIsId( av, TidyAttr_SLOT  )
 #define attrIsSPAN(av)              AttrIsId( av, TidyAttr_SPAN  )
 #define attrIsSRC(av)               AttrIsId( av, TidyAttr_SRC  )
 #define attrIsSTANDBY(av)           AttrIsId( av, TidyAttr_STANDBY  )
@@ -360,8 +375,20 @@ Bool TY_(AttributeIsMismatched)(Node* node, AttVal* attval, TidyDocImpl* doc);
 #define attrIsARIA_VALUEMIN(av)         AttrIsId( av,  TidyAttr_ARIA_VALUEMIN  )
 #define attrIsARIA_VALUENOW(av)         AttrIsId( av,  TidyAttr_ARIA_VALUENOW  )
 #define attrIsARIA_VALUETEXT(av)        AttrIsId( av,  TidyAttr_ARIA_VALUETEXT  )
-
-
+#define attrIsSVG_FILL(av)              AttrIsId( av,  TidyAttr_FILL  )
+#define attrIsSVG_FILLRULE(av)          AttrIsId( av,  TidyAttr_FILLRULE  )
+#define attrIsSVG_STROKE(av)            AttrIsId( av,  TidyAttr_STROKE  )
+#define attrIsSVG_STROKEDASHARRAY(av)   AttrIsId( av,  TidyAttr_STROKEDASHARRAY  )
+#define attrIsSVG_STROKEDASHOFFSET(av)  AttrIsId( av,  TidyAttr_STROKEDASHOFFSET  )
+#define attrIsSVG_STROKELINECAP(av)     AttrIsId( av,  TidyAttr_STROKELINECAP  )
+#define attrIsSVG_STROKELINEJOIN(av)    AttrIsId( av,  TidyAttr_STROKELINEJOIN  )
+#define attrIsSVG_STROKEMITERLIMIT(av)  AttrIsId( av,  TidyAttr_STROKEMITERLIMIT  )
+#define attrIsSVG_STROKEWIDTH(av)       AttrIsId( av,  TidyAttr_STROKEWIDTH  )
+#define attrIsSVG_COLORINTERPOLATION(a) AttrIsId(  a,  TidyAttr_COLORINTERPOLATION  )
+#define attrIsSVG_COLORRENDERING(av)    AttrIsId( av,  TidyAttr_COLORRENDERING  )
+#define attrIsSVG_OPACITY(av)           AttrIsId( av,  TidyAttr_OPACITY  )
+#define attrIsSVG_STROKEOPACITY(av)     AttrIsId( av,  TidyAttr_STROKEOPACITY  )
+#define attrIsSVG_FILLOPACITY(av)       AttrIsId( av,  TidyAttr_FILLOPACITY  )
 
 /* Attribute Retrieval macros
 */
@@ -385,6 +412,7 @@ Bool TY_(AttributeIsMismatched)(Node* node, AttVal* attval, TidyDocImpl* doc);
 #define attrGetHEIGHT( nod )      TY_(AttrGetById)( nod, TidyAttr_HEIGHT  )
 #define attrGetFOR( nod )         TY_(AttrGetById)( nod, TidyAttr_FOR  )
 #define attrGetSELECTED( nod )    TY_(AttrGetById)( nod, TidyAttr_SELECTED  )
+#define attrGetCHARSET( nod )     TY_(AttrGetById)( nod, TidyAttr_CHARSET  )
 #define attrGetCHECKED( nod )     TY_(AttrGetById)( nod, TidyAttr_CHECKED  )
 #define attrGetLANG( nod )        TY_(AttrGetById)( nod, TidyAttr_LANG  )
 #define attrGetTARGET( nod )      TY_(AttrGetById)( nod, TidyAttr_TARGET  )

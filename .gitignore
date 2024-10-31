@@ -19,3 +19,4 @@ temp*
 .build
 build-android-swift/obj
 build-android-swift/libs
+.swiftpm

@@ -16,170 +16,109 @@
 #include "entities.h"
 #include "tmbstr.h"
 #include "utf8.h"
+#include "sprtf.h"
 
-/* *** FOR DEBUG ONLY *** */
-#if !defined(NDEBUG) && defined(_MSC_VER)
-/* #define DEBUG_PPRINT */
-/* #define DEBUG_INDENT */
-#ifdef DEBUG_PPRINT
+
+/****************************************************************************//*
+ ** MARK: - Debug Output
+ ** For debug only:
+ ** #define DEBUG_PPRINT
+ ** #define DEBUG_INDENT
+ ***************************************************************************/
+
+
+#if defined(ENABLE_DEBUG_LOG) && defined(DEBUG_PPRINT)
 extern void dbg_show_node( TidyDocImpl* doc, Node *node, int caller, int indent );
 #endif
-#ifdef DEBUG_INDENT
-#include "sprtf.h"
-#endif
-#endif
 
-/*
-  Block-level and unknown elements are printed on
-  new lines and their contents indented 2 spaces
 
-  Inline elements are printed inline.
+/****************************************************************************//*
+ ** MARK: - Forward Declarations
+ ***************************************************************************/
 
-  Inline content is wrapped on spaces (except in
-  attribute values or preformatted text, after
-  start tags and before end tags
-*/
 
 static void PPrintAsp( TidyDocImpl* doc, uint indent, Node* node );
-static void PPrintJste( TidyDocImpl* doc, uint indent, Node* node );
 static void PPrintPhp( TidyDocImpl* doc, uint indent, Node* node );
-static int  TextEndsWithNewline( Lexer *lexer, Node *node, uint mode );
-static int  TextStartsWithWhitespace( Lexer *lexer, Node *node, uint start, uint mode );
-static Bool InsideHead( TidyDocImpl* doc, Node *node );
-static Bool ShouldIndent( TidyDocImpl* doc, Node *node );
 
-/*\
- * Issue #228 20150715 - macros to access --vertical-space tri state configuration parameter
-\*/
+
+/****************************************************************************//*
+ ** MARK: - Vertical-Space Tri-State Configuration accessor
+ ** Issue #228 20150715 - macros to access --vertical-space tri state
+ **   configuration parameter.
+ ***************************************************************************/
+
+
 #define TidyClassicVS ((cfgAutoBool( doc, TidyVertSpace ) == TidyYesState) ? yes : no)
 #define TidyAddVS ((cfgAutoBool( doc, TidyVertSpace ) == TidyAutoState) ? no : yes )
 
-/*\
- * 20150515 - support using tabs instead of spaces - Issue #108
- * GH: https://github.com/htacg/tidy-html5/issues/108 - Keep indent with tabs #108
- * SF: https://sourceforge.net/p/tidy/feature-requests/3/ - #3 tabs in place of spaces
-\*/
-static uint indent_char = ' ';
-void TY_(PPrintTabs)(void)
-{
-    indent_char = '\t';
-}
-void TY_(PPrintSpaces)(void)
-{
-    indent_char = ' ';
-}
 
-#if SUPPORT_ASIAN_ENCODINGS
-/* #431953 - start RJ Wraplen adjusted for smooth international ride */
+/****************************************************************************//*
+ ** MARK: - Wrapping Support
+ ***************************************************************************/
 
-#if 0
-uint CWrapLen( TidyDocImpl* doc, uint ind )
-{
-    ctmbstr lang = cfgStr( doc, TidyLanguage );
-    uint wraplen = cfg( doc, TidyWrapLen );
 
-    if ( !TY_(tmbstrcasecmp)(lang, "zh") )
-        /* Chinese characters take two positions on a fixed-width screen */ 
-        /* It would be more accurate to keep a parallel linelen and wraphere
-           incremented by 2 for Chinese characters and 1 otherwise, but this
-           is way simpler.
-        */
-        return (ind + (( wraplen - ind ) / 2)) ; 
-    
-    if ( !TY_(tmbstrcasecmp)(lang, "ja") )
-        /* average Japanese text is 30% kanji */
-        return (ind + ((( wraplen - ind ) * 7) / 10)) ; 
-    
-    return wraplen;
-}
-#endif
-
+/**
+ *  This typedef establishes the Unicode categories that individual characters
+ *  will belong to. These are used to help ensure that TidyWraplen wraps at
+ *  an appropriate place.
+ */
 typedef enum
 {
-  UC00, /* None                       */
-  UCPC, /* Punctuation, Connector     */
-  UCPD, /* Punctuation, Dash          */
-  UCPE, /* Punctuation, Close         */
-  UCPS, /* Punctuation, Open          */
-  UCPI, /* Punctuation, Initial quote */
-  UCPF, /* Punctuation, Final quote   */
-  UCPO, /* Punctuation, Other         */
-  UCZS, /* Separator, Space           */
-  UCZL, /* Separator, Line            */
-  UCZP  /* Separator, Paragraph       */
+  UC00, /**< None                       */
+  UCPC, /**< Punctuation, Connector     */
+  UCPD, /**< Punctuation, Dash          */
+  UCPE, /**< Punctuation, Close         */
+  UCPS, /**< Punctuation, Open          */
+  UCPI, /**< Punctuation, Initial quote */
+  UCPF, /**< Punctuation, Final quote   */
+  UCPO, /**< Punctuation, Other         */
+  UCZS, /**< Separator, Space           */
+  UCZL, /**< Separator, Line            */
+  UCZP  /**< Separator, Paragraph       */
 } UnicodeCategory;
 
-/*
-  From the original code, the following characters are removed:
 
-    U+2011 (non-breaking hyphen)
-    U+202F (narrow non-break space)
-    U+2044 (fraction slash) 
-    U+200B (zero width space)
-    ...... (bidi formatting control characters)
-
-  U+2011 and U+202F are non-breaking, U+2044 is a Sm character,
-  U+200B is a non-visible space, wrapping after it would make
-  this space visible, bidi should be done using HTML features
-  and the characters are neither Px or Zx.
-
-  The following Unicode 3.0 punctuation characters are added:
-
-    U+2048 (question exclamation mark)
-    U+2049 (exclamation question mark)
-    U+204A (tironian sign et)
-    U+204B (reversed pilcrow sign)
-    U+204C (black leftwards bullet)
-    U+204D (black rightwards bullet)
-    U+3030 (wavy dash)
-    U+30FB (katakana middle dot)
-    U+FE63 (small hyphen-minus)
-    U+FE68 (small reverse solidus)
-    U+FF3F (fullwidth low line)
-    U+FF5B (fullwidth left curly bracket)
-    U+FF5D (fullwidth right curly bracket)
-
-  Other additional characters were not included in Unicode 3.0.
-  The table is based on Unicode 4.0. It must include only those
-  characters marking a wrapping point, "before" if the general
-  category is UCPS or UCPI, otherwise "after".
-*/
+/**
+ *  From the original code, the following characters are removed:
+ *
+ *    U+2011 (non-breaking hyphen)
+ *    U+202F (narrow non-break space)
+ *    U+2044 (fraction slash)
+ *    U+200B (zero width space)
+ *    ...... (bidi formatting control characters)
+ *
+ *  U+2011 and U+202F are non-breaking, U+2044 is a Sm character,
+ *  U+200B is a non-visible space, wrapping after it would make
+ *  this space visible, bidi should be done using HTML features
+ *  and the characters are neither Px or Zx.
+ *
+ *  The following Unicode 3.0 punctuation characters are added:
+ *
+ *    U+2048 (question exclamation mark)
+ *    U+2049 (exclamation question mark)
+ *    U+204A (tironian sign et)
+ *    U+204B (reversed pilcrow sign)
+ *    U+204C (black leftwards bullet)
+ *    U+204D (black rightwards bullet)
+ *    U+3030 (wavy dash)
+ *    U+30FB (katakana middle dot)
+ *    U+FE63 (small hyphen-minus)
+ *    U+FE68 (small reverse solidus)
+ *    U+FF3F (fullwidth low line)
+ *    U+FF5B (fullwidth left curly bracket)
+ *    U+FF5D (fullwidth right curly bracket)
+ *
+ *  Other additional characters were not included in Unicode 3.0.
+ *  The table is based on Unicode 4.0. It must include only those
+ *  characters marking a wrapping point, "before" if the general
+ *  category is UCPS or UCPI, otherwise "after".
+ */
 static struct _unicode4cat
 {
   unsigned long code;
   UnicodeCategory category;
 } const unicode4cat[] =
 {
-#if 0
-  { 0x037E, UCPO }, { 0x0387, UCPO }, { 0x055A, UCPO }, { 0x055B, UCPO },
-  { 0x055C, UCPO }, { 0x055D, UCPO }, { 0x055E, UCPO }, { 0x055F, UCPO },
-  { 0x0589, UCPO }, { 0x058A, UCPD }, { 0x05BE, UCPO }, { 0x05C0, UCPO },
-  { 0x05C3, UCPO }, { 0x05F3, UCPO }, { 0x05F4, UCPO }, { 0x060C, UCPO },
-  { 0x060D, UCPO }, { 0x061B, UCPO }, { 0x061F, UCPO }, { 0x066A, UCPO },
-  { 0x066B, UCPO }, { 0x066C, UCPO }, { 0x066D, UCPO }, { 0x06D4, UCPO },
-  { 0x0700, UCPO }, { 0x0701, UCPO }, { 0x0702, UCPO }, { 0x0703, UCPO },
-  { 0x0704, UCPO }, { 0x0705, UCPO }, { 0x0706, UCPO }, { 0x0707, UCPO },
-  { 0x0708, UCPO }, { 0x0709, UCPO }, { 0x070A, UCPO }, { 0x070B, UCPO },
-  { 0x070C, UCPO }, { 0x070D, UCPO }, { 0x0964, UCPO }, { 0x0965, UCPO },
-  { 0x0970, UCPO }, { 0x0DF4, UCPO }, { 0x0E4F, UCPO }, { 0x0E5A, UCPO },
-  { 0x0E5B, UCPO }, { 0x0F04, UCPO }, { 0x0F05, UCPO }, { 0x0F06, UCPO },
-  { 0x0F07, UCPO }, { 0x0F08, UCPO }, { 0x0F09, UCPO }, { 0x0F0A, UCPO },
-  { 0x0F0B, UCPO }, { 0x0F0D, UCPO }, { 0x0F0E, UCPO }, { 0x0F0F, UCPO },
-  { 0x0F10, UCPO }, { 0x0F11, UCPO }, { 0x0F12, UCPO }, { 0x0F3A, UCPS },
-  { 0x0F3B, UCPE }, { 0x0F3C, UCPS }, { 0x0F3D, UCPE }, { 0x0F85, UCPO },
-  { 0x104A, UCPO }, { 0x104B, UCPO }, { 0x104C, UCPO }, { 0x104D, UCPO },
-  { 0x104E, UCPO }, { 0x104F, UCPO }, { 0x10FB, UCPO }, { 0x1361, UCPO },
-  { 0x1362, UCPO }, { 0x1363, UCPO }, { 0x1364, UCPO }, { 0x1365, UCPO },
-  { 0x1366, UCPO }, { 0x1367, UCPO }, { 0x1368, UCPO }, { 0x166D, UCPO },
-  { 0x166E, UCPO }, { 0x1680, UCZS }, { 0x169B, UCPS }, { 0x169C, UCPE },
-  { 0x16EB, UCPO }, { 0x16EC, UCPO }, { 0x16ED, UCPO }, { 0x1735, UCPO },
-  { 0x1736, UCPO }, { 0x17D4, UCPO }, { 0x17D5, UCPO }, { 0x17D6, UCPO },
-  { 0x17D8, UCPO }, { 0x17D9, UCPO }, { 0x17DA, UCPO }, { 0x1800, UCPO },
-  { 0x1801, UCPO }, { 0x1802, UCPO }, { 0x1803, UCPO }, { 0x1804, UCPO },
-  { 0x1805, UCPO }, { 0x1806, UCPD }, { 0x1807, UCPO }, { 0x1808, UCPO },
-  { 0x1809, UCPO }, { 0x180A, UCPO }, { 0x180E, UCZS }, { 0x1944, UCPO },
-  { 0x1945, UCPO }, 
-#endif
   { 0x2000, UCZS }, { 0x2001, UCZS }, { 0x2002, UCZS }, { 0x2003, UCZS },
   { 0x2004, UCZS }, { 0x2005, UCZS }, { 0x2006, UCZS }, { 0x2008, UCZS },
   { 0x2009, UCZS }, { 0x200A, UCZS }, { 0x2010, UCPD }, { 0x2012, UCPD },
@@ -247,37 +186,46 @@ static struct _unicode4cat
   { 0x0000, UC00 }
 };
 
+
+/**
+ *  The values in this enum are used to indicate the wrapping point relative
+ *  to a specific character.
+ */
 typedef enum
 {
-    NoWrapPoint,
-    WrapBefore,
-    WrapAfter
+    NoWrapPoint, /**< Not a wrapping point. */
+    WrapBefore,  /**< Wrap before this character. */
+    WrapAfter    /**< Wrap after this character. */
 } WrapPoint;
 
-/*
-  If long lines of text have no white space as defined in HTML 4
-  (U+0009, U+000A, U+000D, U+000C, U+0020) other characters could
-  be used to determine a wrap point. Since user agents would
-  normalize the inserted newline character to a space character,
-  this wrapping behaviour would insert visual whitespace into the
-  document.
 
-  Characters of the General Category Pi and Ps in the Unicode
-  character database (opening punctuation and intial quote
-  characters) mark a wrapping point before the character, other
-  punctuation characters (Pc, Pd, Pe, Pf, and Po), breakable
-  space characters (Zs), and paragraph and line separators
-  (Zl, Zp) mark a wrap point after the character. Using this
-  function Tidy can for example pretty print
-
-    <p>....................&ldquo;...quote...&rdquo;...</p>
-  as
-    <p>....................\n&ldquo;...quote...&rdquo;...</p>
-  or
-    <p>....................&ldquo;...quote...&rdquo;\n...</p>
-
-  if the next normal wrapping point would exceed the user
-  chosen wrapping column.
+/**
+ *  Given a character, indicate whether a wrap point exists before
+ *  the character, after the character, or not at all.
+ *
+ *  If long lines of text have no white space as defined in HTML 4
+ *  (U+0009, U+000A, U+000D, U+000C, U+0020) other characters could
+ *  be used to determine a wrap point. Since user agents would
+ *  normalize the inserted newline character to a space character,
+ *  this wrapping behaviour would insert visual whitespace into the
+ *  document.
+ *
+ *  Characters of the General Category Pi and Ps in the Unicode
+ *  character database (opening punctuation and initial quote
+ *  characters) mark a wrapping point before the character, other
+ *  punctuation characters (Pc, Pd, Pe, Pf, and Po), breakable
+ *  space characters (Zs), and paragraph and line separators
+ *  (Zl, Zp) mark a wrap point after the character. Using this
+ *  function Tidy can for example pretty print
+ *
+ *    <p>....................&ldquo;...quote...&rdquo;...</p>
+ *  as
+ *    <p>....................\n&ldquo;...quote...&rdquo;...</p>
+ *  or
+ *    <p>....................&ldquo;...quote...&rdquo;\n...</p>
+ *
+ *  if the next normal wrapping point would exceed the user
+ *  chosen wrapping column.
 */
 static WrapPoint CharacterWrapPoint(tchar c)
 {
@@ -297,6 +245,11 @@ static WrapPoint CharacterWrapPoint(tchar c)
     return NoWrapPoint;
 }
 
+
+/**
+ *  Given a character in Big5 encoding, indicate whether a wrap point
+ *  exists before the character, after the character, or not at all.
+ */
 static WrapPoint Big5WrapPoint(tchar c)
 {
     if ((c & 0xFF00) == 0xA100)
@@ -309,8 +262,15 @@ static WrapPoint Big5WrapPoint(tchar c)
     return NoWrapPoint;
 }
 
-#endif /* SUPPORT_ASIAN_ENCODINGS */
 
+/****************************************************************************//*
+ ** MARK: - Print Buffer Allocation and Deallocation
+ ***************************************************************************/
+
+
+/**
+ *  Initializes an instance of TidyIndent to default
+ */
 static void InitIndent( TidyIndent* ind )
 {
     ind->spaces = -1;
@@ -318,6 +278,10 @@ static void InitIndent( TidyIndent* ind )
     ind->attrStringStart = -1;
 }
 
+
+/**
+ *  Initializes the tidy document's instance of the pretty print buffer.
+ */
 void TY_(InitPrintBuf)( TidyDocImpl* doc )
 {
     TidyClearMemory( &doc->pprint, sizeof(TidyPrintImpl) );
@@ -327,12 +291,25 @@ void TY_(InitPrintBuf)( TidyDocImpl* doc )
     doc->pprint.line = 0;
 }
 
+
+/**
+ *  Frees the tidy document's pretty print buffer.
+ */
 void TY_(FreePrintBuf)( TidyDocImpl* doc )
 {
     TidyDocFree( doc, doc->pprint.linebuf );
     TY_(InitPrintBuf)( doc );
 }
 
+
+/****************************************************************************//*
+ ** MARK: - Buffer Utilities
+ ***************************************************************************/
+
+
+/**
+ *  Expand the size of the pretty print buffer.
+ */
 static void expand( TidyPrintImpl* pprint, uint len )
 {
     uint* ip;
@@ -353,28 +330,64 @@ static void expand( TidyPrintImpl* pprint, uint len )
     }
 }
 
+
+/****************************************************************************//*
+ ** MARK: - Indentation and Wrapping Utilities
+ ***************************************************************************/
+
+
+/**
+ *  Returns the indent level of the current line.
+ */
 static uint GetSpaces( TidyPrintImpl* pprint )
 {
     int spaces = pprint->indent[ 0 ].spaces;
     return ( spaces < 0 ? 0U : (uint) spaces );
 }
+
+
+/**
+ *  Clears the in-string flag. The pretty printer needs to know
+ *  whether the current output position is within an attribute's
+ *  string value in order to make word wrapping decisions.
+ */
 static int ClearInString( TidyPrintImpl* pprint )
 {
     TidyIndent *ind = pprint->indent + pprint->ixInd;
     return ind->attrStringStart = -1;
 }
+
+
+/**
+ *  Toggle's the in-string flag. The pretty printer needs to know
+ *  whether the current output position is within an attribute's
+ *  string value in order to make word wrapping decisions.
+ */
 static int ToggleInString( TidyPrintImpl* pprint )
 {
     TidyIndent *ind = pprint->indent + pprint->ixInd;
     Bool inString = ( ind->attrStringStart >= 0 );
     return ind->attrStringStart = ( inString ? -1 : (int) pprint->linelen );
 }
+
+
+/**
+ *  Returns whether or not the current output position is in an
+ *  attribute's string value. This is used to make word wrapping
+ *  decisions.
+ */
 static Bool IsInString( TidyPrintImpl* pprint )
 {
     TidyIndent *ind = pprint->indent + 0; /* Always 1st */
     return ( ind->attrStringStart >= 0 && 
              ind->attrStringStart < (int) pprint->linelen );
 }
+
+
+/**
+ *  Indicates whether or not the current designated word wrap
+ *  position is within an attribute's string.
+ */
 static Bool IsWrapInString( TidyPrintImpl* pprint )
 {
     TidyIndent *ind = pprint->indent + 0; /* Always 1st */
@@ -383,30 +396,36 @@ static Bool IsWrapInString( TidyPrintImpl* pprint )
              (ind->attrStringStart > 0 && ind->attrStringStart < wrap) );
 }
 
-static Bool HasMixedContent (Node *element)
-{
-    Node * node;
 
-    if (!element)
-        return no;
-
-    for (node = element->content; node; node = node->next)
-        if ( TY_(nodeIsText)(node) )
-             return yes;
-
-    return no;
-}
-
+/**
+ *  Clears the in-attribute flag. The pretty printer needs to know
+ *  whether the current output position is within an attribute's
+ *  string value in order to make word wrapping decisions.
+ */
 static void ClearInAttrVal( TidyPrintImpl* pprint )
 {
     TidyIndent *ind = pprint->indent + pprint->ixInd;
     ind->attrValStart = -1;
 }
+
+
+/**
+ *  Set the in-attribute flag and returns the attribute start
+ *  position. The pretty printer needs to know whether the current
+ *  output position is within an attribute's string value in order
+ *  to make word wrapping decisions.
+ */
 static int SetInAttrVal( TidyPrintImpl* pprint )
 {
     TidyIndent *ind = pprint->indent + pprint->ixInd;
     return ind->attrValStart = (int) pprint->linelen;
 }
+
+
+/**
+ *  Indicates whether or not the current designated word wrap
+ *  position is within an attribute.
+ */
 static Bool IsWrapInAttrVal( TidyPrintImpl* pprint )
 {
     TidyIndent *ind = pprint->indent + 0; /* Always 1st */
@@ -415,92 +434,10 @@ static Bool IsWrapInAttrVal( TidyPrintImpl* pprint )
              (ind->attrValStart > 0 && ind->attrValStart < wrap) );
 }
 
-static Bool WantIndent( TidyDocImpl* doc )
-{
-    TidyPrintImpl* pprint = &doc->pprint;
-    Bool wantIt = GetSpaces(pprint) > 0;
-    if ( wantIt )
-    {
-        Bool indentAttrs = cfgBool( doc, TidyIndentAttributes );
-        wantIt = ( ( !IsWrapInAttrVal(pprint) || indentAttrs ) &&
-                   !IsWrapInString(pprint) );
-    }
-    return wantIt;
-}
 
-
-static uint  WrapOff( TidyDocImpl* doc )
-{
-    uint saveWrap = cfg( doc, TidyWrapLen );
-    TY_(SetOptionInt)( doc, TidyWrapLen, 0xFFFFFFFF );  /* very large number */
-    return saveWrap;
-}
-
-static void  WrapOn( TidyDocImpl* doc, uint saveWrap )
-{
-    TY_(SetOptionInt)( doc, TidyWrapLen, saveWrap );
-}
-
-static uint  WrapOffCond( TidyDocImpl* doc, Bool onoff )
-{
-    if ( onoff )
-        return WrapOff( doc );
-    return cfg( doc, TidyWrapLen );
-}
-
-
-static void AddC( TidyPrintImpl* pprint, uint c, uint string_index)
-{
-    if ( string_index + 1 >= pprint->lbufsize )
-        expand( pprint, string_index + 1 );
-    pprint->linebuf[string_index] = c;
-}
-
-static uint AddChar( TidyPrintImpl* pprint, uint c )
-{
-    AddC( pprint, c, pprint->linelen );
-    return ++pprint->linelen;
-}
-
-static uint AddAsciiString( TidyPrintImpl* pprint, ctmbstr str, uint string_index )
-{
-    uint ix, len = TY_(tmbstrlen)( str );
-    if ( string_index + len >= pprint->lbufsize )
-        expand( pprint, string_index + len );
-
-    for ( ix=0; ix<len; ++ix )
-        pprint->linebuf[string_index + ix] = str[ ix ];
-    return string_index + len;
-}
-
-static uint AddString( TidyPrintImpl* pprint, ctmbstr str )
-{
-   return pprint->linelen = AddAsciiString( pprint, str, pprint->linelen );
-}
-
-/* Saves current output point as the wrap point,
-** but only if indentation would NOT overflow 
-** the current line.  Otherwise keep previous wrap point.
-*/
-static Bool SetWrap( TidyDocImpl* doc, uint indent )
-{
-    TidyPrintImpl* pprint = &doc->pprint;
-    Bool wrap = ( indent + pprint->linelen < cfg(doc, TidyWrapLen) );
-    if ( wrap )
-    {
-        if ( pprint->indent[0].spaces < 0 )
-            pprint->indent[0].spaces = indent;
-        pprint->wraphere = pprint->linelen;
-    }
-    else if ( pprint->ixInd == 0 )
-    {
-        /* Save indent 1st time we pass the the wrap line */
-        pprint->indent[ 1 ].spaces = indent;
-        pprint->ixInd = 1;
-    }
-    return wrap;
-}
-
+/**
+ *  Carry over the string and attribute state from one to the other.
+ */
 static void CarryOver( int* valTo, int* valFrom, uint wrapPoint )
 {
   if ( *valFrom > (int) wrapPoint )
@@ -511,6 +448,10 @@ static void CarryOver( int* valTo, int* valFrom, uint wrapPoint )
 }
 
 
+/**
+ *  Determines whether the attribute can be and updates the wrap location and
+ *  the print buffer's TidyIndent record.
+ */
 static Bool SetWrapAttr( TidyDocImpl* doc,
                          uint indent, int attrStart, int strStart )
 {
@@ -541,8 +482,84 @@ static Bool SetWrapAttr( TidyDocImpl* doc,
 }
 
 
-/* Reset indent state after flushing a new line
-*/
+/**
+ *  Indicates whether or not indentation is needed for the current line.
+ */
+static Bool WantIndent( TidyDocImpl* doc )
+{
+    TidyPrintImpl* pprint = &doc->pprint;
+    Bool wantIt = GetSpaces(pprint) > 0;
+    if ( wantIt )
+    {
+        Bool indentAttrs = cfgBool( doc, TidyIndentAttributes );
+        wantIt = ( ( !IsWrapInAttrVal(pprint) || indentAttrs ) &&
+                   !IsWrapInString(pprint) );
+    }
+    return wantIt;
+}
+
+
+/**
+ *  Turns off wrapping from the current print point onward. It also
+ *  returns the current wrapping setting (prior to turning it off) so
+ *  that the current state can be restored later.
+ */
+static uint  WrapOff( TidyDocImpl* doc )
+{
+    uint saveWrap = cfg( doc, TidyWrapLen );
+    TY_(SetOptionInt)( doc, TidyWrapLen, 0xFFFFFFFF );  /* very large number */
+    return saveWrap;
+}
+
+
+/**
+ *  Turns wrapping on from the current point forward, wrapping at the column
+ *  specified by `saveWrap`.
+ */
+static void  WrapOn( TidyDocImpl* doc, uint saveWrap )
+{
+    TY_(SetOptionInt)( doc, TidyWrapLen, saveWrap );
+}
+
+
+/**
+ *  Conditionally turns off word wrapping, returning the pre-existing value.
+ */
+static uint  WrapOffCond( TidyDocImpl* doc, Bool onoff )
+{
+    if ( onoff )
+        return WrapOff( doc );
+    return cfg( doc, TidyWrapLen );
+}
+
+
+/**
+ *  Saves current output point as the wrap point, but only if indentation
+ *  would NOT overflow the current line. Otherwise keep previous wrap point.
+ */
+static Bool SetWrap( TidyDocImpl* doc, uint indent )
+{
+    TidyPrintImpl* pprint = &doc->pprint;
+    Bool wrap = ( indent + pprint->linelen < cfg(doc, TidyWrapLen) );
+    if ( wrap )
+    {
+        if ( pprint->indent[0].spaces < 0 )
+            pprint->indent[0].spaces = indent;
+        pprint->wraphere = pprint->linelen;
+    }
+    else if ( pprint->ixInd == 0 )
+    {
+        /* Save indent 1st time we pass the the wrap line */
+        pprint->indent[ 1 ].spaces = indent;
+        pprint->ixInd = 1;
+    }
+    return wrap;
+}
+
+
+/**
+ *  Reset indent state after flushing a new line.
+ */
 static void ResetLine( TidyPrintImpl* pprint )
 {
     TidyIndent* ind = pprint->indent + 0;
@@ -570,9 +587,10 @@ static void ResetLine( TidyPrintImpl* pprint )
     pprint->wraphere = pprint->ixInd = 0;
 }
 
-/* Shift text after wrap point to
-** beginning of next line.
-*/
+
+/**
+ *  Shift text after wrap point to beginning of next line.
+ */
 static void ResetLineAfterWrap( TidyPrintImpl* pprint )
 {
     if ( pprint->linelen > pprint->wraphere )
@@ -583,8 +601,10 @@ static void ResetLineAfterWrap( TidyPrintImpl* pprint )
 
         if ( ! IsWrapInAttrVal(pprint) )
         {
-            while ( q < end && *q == ' ' )
-                ++q, ++pprint->wraphere;
+            while ( q < end && *q == ' ' ) {
+                ++q;
+                ++pprint->wraphere;
+            }
         }
 
         while ( q < end )
@@ -600,10 +620,36 @@ static void ResetLineAfterWrap( TidyPrintImpl* pprint )
     ResetLine( pprint );
 }
 
-/* Goes ahead with writing current line up to
-** previously saved wrap point.  Shifts unwritten
-** text in output buffer to beginning of next line.
-*/
+
+/**
+ *  Write the 'indent' char to output.
+ *  Issue #335 - The GetSpaces() returns the number of spaces to be
+ *  used for the indent. This is fine if outputting spaces.
+ *  However, if outputting 'tab' chars, then the number of tabs
+ *  output should equivalent to spaces divided by 'tab-size'
+ */
+static void WriteIndentChar(TidyDocImpl* doc )
+{
+    TidyPrintImpl* pprint = &doc->pprint;
+    uint i;
+    uint spaces = GetSpaces(pprint);
+    uint tabsize = cfg(doc, TidyTabSize);
+    if (spaces && (doc->indent_char == '\t') && tabsize)
+    {
+        spaces /= tabsize;  /* set number of tabs to output */
+        if (spaces == 0)    /* with a minimum of one */
+            spaces = 1;
+    }
+    for (i = 0; i < spaces; i++)
+        TY_(WriteChar)(doc->indent_char, doc->docOut); /* 20150515 - Issue #108 */
+
+}
+
+
+/**
+ *  Writes the current line up to the previously saved wrap point, and
+ *  shifts unwritten text in output buffer to the beginning of next line.
+ */
 static void WrapLine( TidyDocImpl* doc )
 {
     TidyPrintImpl* pprint = &doc->pprint;
@@ -613,11 +659,7 @@ static void WrapLine( TidyDocImpl* doc )
         return;
 
     if ( WantIndent(doc) )
-    {
-        uint spaces = GetSpaces( pprint );
-        for ( i = 0; i < spaces; ++i )
-            TY_(WriteChar)( indent_char, doc->docOut ); /* 20150515 - Issue #108 */
-    }
+        WriteIndentChar(doc);
 
     for ( i = 0; i < pprint->wraphere; ++i )
         TY_(WriteChar)( pprint->linebuf[i], doc->docOut );
@@ -630,10 +672,12 @@ static void WrapLine( TidyDocImpl* doc )
     ResetLineAfterWrap( pprint );
 }
 
-/* Checks current output line length along with current indent.
-** If combined they overflow output line length, go ahead
-** and flush output up to the current wrap point.
-*/
+
+/**
+ *  Checks current output line length along with current indent.
+ *  If combined they overflow output line length, go ahead
+ *  and flush output up to the current wrap point.
+ */
 static Bool CheckWrapLine( TidyDocImpl* doc )
 {
     TidyPrintImpl* pprint = &doc->pprint;
@@ -645,6 +689,11 @@ static Bool CheckWrapLine( TidyDocImpl* doc )
     return no;
 }
 
+
+/**
+ *  If the line, when idented, is ready to wrap, then wrap it. The return
+ *  value indicates whether or not the line was wrapped.
+ */
 static Bool CheckWrapIndent( TidyDocImpl* doc, uint indent )
 {
     TidyPrintImpl* pprint = &doc->pprint;
@@ -653,9 +702,9 @@ static Bool CheckWrapIndent( TidyDocImpl* doc, uint indent )
         WrapLine( doc );
         if ( pprint->indent[ 0 ].spaces < 0 )
         {
-#if !defined(NDEBUG) && defined(_MSC_VER) && defined(DEBUG_INDENT)
+#if defined(ENABLE_DEBUG_LOG) && defined(DEBUG_INDENT)
             SPRTF("%s Indent from %d to %d\n", __FUNCTION__, pprint->indent[ 0 ].spaces, indent );
-#endif  
+#endif
             pprint->indent[ 0 ].spaces = indent;
         }
         return yes;
@@ -663,18 +712,17 @@ static Bool CheckWrapIndent( TidyDocImpl* doc, uint indent )
     return no;
 }
 
+
+/**
+ *  Wraps an attribute value appropriately.
+ */
 static void WrapAttrVal( TidyDocImpl* doc )
 {
     TidyPrintImpl* pprint = &doc->pprint;
     uint i;
 
-    /* assert( IsWrapInAttrVal(pprint) ); */
     if ( WantIndent(doc) )
-    {
-        uint spaces = GetSpaces( pprint );
-        for ( i = 0; i < spaces; ++i )
-            TY_(WriteChar)( indent_char, doc->docOut ); /* 20150515 - Issue #108 */
-    }
+        WriteIndentChar(doc);
 
     for ( i = 0; i < pprint->wraphere; ++i )
         TY_(WriteChar)( pprint->linebuf[i], doc->docOut );
@@ -689,6 +737,88 @@ static void WrapAttrVal( TidyDocImpl* doc )
     ResetLineAfterWrap( pprint );
 }
 
+
+/****************************************************************************//*
+ ** MARK: - Node Utilities
+ ***************************************************************************/
+
+
+/**
+ *  Indicates whether or not the given node has text content after it.
+ */
+static Bool HasMixedContent (Node *element)
+{
+    Node * node;
+
+    if (!element)
+        return no;
+
+    for (node = element->content; node; node = node->next)
+        if ( TY_(nodeIsText)(node) )
+             return yes;
+
+    return no;
+}
+
+
+/****************************************************************************//*
+ ** MARK: - String Utilities
+ ***************************************************************************/
+
+
+/**
+ *  Adds a character to the print buffer at position `string_index`.
+ */
+static void AddC( TidyPrintImpl* pprint, uint c, uint string_index)
+{
+    if ( string_index + 1 >= pprint->lbufsize )
+        expand( pprint, string_index + 1 );
+    pprint->linebuf[string_index] = c;
+}
+
+
+/**
+ *  Adds a character to the end of the print buffer.
+ */
+static uint AddChar( TidyPrintImpl* pprint, uint c )
+{
+    AddC( pprint, c, pprint->linelen );
+    return ++pprint->linelen;
+}
+
+
+/**
+ *  Adds an ASCII string to the print buffer at the given position.
+ */
+static uint AddAsciiString( TidyPrintImpl* pprint, ctmbstr str, uint string_index )
+{
+    uint ix, len = TY_(tmbstrlen)( str );
+    if ( string_index + len >= pprint->lbufsize )
+        expand( pprint, string_index + len );
+
+    for ( ix=0; ix<len; ++ix )
+        pprint->linebuf[string_index + ix] = str[ ix ];
+    return string_index + len;
+}
+
+
+/**
+ *  Adds an ASCII string to the end of the print buffer.
+ */
+static uint AddString( TidyPrintImpl* pprint, ctmbstr str )
+{
+   return pprint->linelen = AddAsciiString( pprint, str, pprint->linelen );
+}
+
+
+/****************************************************************************//*
+ ** MARK: - Output Flushing
+ ***************************************************************************/
+
+
+/**
+ *  Flush the current line from the buffer to the output sink.
+ */
 static void PFlushLineImpl( TidyDocImpl* doc )
 {
     TidyPrintImpl* pprint = &doc->pprint;
@@ -698,11 +828,7 @@ static void PFlushLineImpl( TidyDocImpl* doc )
     CheckWrapLine( doc );
 
     if ( WantIndent(doc) )
-    {
-        uint spaces = GetSpaces( pprint );
-        for ( i = 0; i < spaces; ++i )
-            TY_(WriteChar)( indent_char, doc->docOut ); /* 20150515 - Issue #108 */
-    }
+        WriteIndentChar(doc);
 
     for ( i = 0; i < pprint->linelen; ++i )
         TY_(WriteChar)( pprint->linebuf[i], doc->docOut );
@@ -713,6 +839,12 @@ static void PFlushLineImpl( TidyDocImpl* doc )
     pprint->linelen = 0;
 }
 
+
+/**
+ *  Flush the current line from the buffer to the output sink, indenting
+ *  as specified. If the buffer's current line length is zero, then
+ *  output a newline to the sink.
+ */
 void TY_(PFlushLine)( TidyDocImpl* doc, uint indent )
 {
     TidyPrintImpl* pprint = &doc->pprint;
@@ -725,13 +857,20 @@ void TY_(PFlushLine)( TidyDocImpl* doc, uint indent )
 
     if (pprint->indent[ 0 ].spaces != (int)indent )
     {
-#if !defined(NDEBUG) && defined(_MSC_VER) && defined(DEBUG_INDENT)
+#if defined(ENABLE_DEBUG_LOG) && defined(DEBUG_INDENT)
         SPRTF("%s Indent from %d to %d\n", __FUNCTION__, pprint->indent[ 0 ].spaces, indent );
 #endif  
         pprint->indent[ 0 ].spaces = indent;
     }
 }
 
+
+/**
+ *  Flush the current line from the buffer to the output sink, indenting
+ *  as specified. A newline will be inserted as the final character. In
+ *  addition, the new indent level will be set as appropriate, even if
+ *  there were no characters to flush to the sink.
+ */
 static void PCondFlushLine( TidyDocImpl* doc, uint indent )
 {
     TidyPrintImpl* pprint = &doc->pprint;
@@ -747,20 +886,20 @@ static void PCondFlushLine( TidyDocImpl* doc, uint indent )
     /* Issue #390 - Whether chars to flush or not, set new indent */
     if ( pprint->indent[ 0 ].spaces != (int)indent )
     {
-#if !defined(NDEBUG) && defined(_MSC_VER)  && defined(DEBUG_INDENT)
+#if defined(ENABLE_DEBUG_LOG) && defined(DEBUG_INDENT)
         SPRTF("%s Indent from %d to %d\n", __FUNCTION__, pprint->indent[ 0 ].spaces, indent );
 #endif  
-         pprint->indent[ 0 ].spaces = indent;
+        pprint->indent[ 0 ].spaces = indent;
     }
 }
 
 /**
- * Two additional "smart" flush line functions which only
- * write a newline if `vertical-space no`. See issues #163 and #227.
- * These need to be used in the right place. In same cases `PFlushLine`
- * and `PCondFlushLine` should still be used.
+ *  A "smart" flush line function which only writes a newline if
+ *  `vertical-space no`. See issues #163 and #227.
+ *  In same cases `PFlushLine` and `PCondFlushLine` should still be used.
+ *  @todo: check that this is true. The TidyAddVS macro looks fishy.
  */
-void TY_(PFlushLineSmart)( TidyDocImpl* doc, uint indent )
+static void PFlushLineSmart( TidyDocImpl* doc, uint indent )
 {
     TidyPrintImpl* pprint = &doc->pprint;
 
@@ -775,13 +914,20 @@ void TY_(PFlushLineSmart)( TidyDocImpl* doc, uint indent )
 
     if ( pprint->indent[ 0 ].spaces != (int)indent )
     {
-#if !defined(NDEBUG) && defined(_MSC_VER) && defined(DEBUG_INDENT)
+#if defined(ENABLE_DEBUG_LOG) && defined(DEBUG_INDENT)
         SPRTF("%s Indent from %d to %d\n", __FUNCTION__, pprint->indent[ 0 ].spaces, indent );
 #endif  
         pprint->indent[ 0 ].spaces = indent;
     }
 }
 
+
+/**
+ *  A "smart" flush line function which only writes a newline if
+ *  `vertical-space no`. See issues #163 and #227.
+ *  In same cases `PFlushLine` and `PCondFlushLine` should still be used.
+ *  @todo: check that this is true. The TidyAddVS macro looks fishy.
+ */
 static void PCondFlushLineSmart( TidyDocImpl* doc, uint indent )
 {
     TidyPrintImpl* pprint = &doc->pprint;
@@ -799,19 +945,197 @@ static void PCondFlushLineSmart( TidyDocImpl* doc, uint indent )
 
     /*\
      *  Issue #390 - Must still deal with fixing indent!
-     *  If TidyHideEndTags or TidyOmitOptionalTags, then
-     *  in certain circumstance no PrintEndTag will be done,
-     *  so linelen will be 0...
+     *  If TidyOmitOptionalTags, then in cerain circumstances no PrintEndTag
+     *  will be done, so linelen will be 0...
     \*/
     if (pprint->indent[ 0 ].spaces != (int)indent)
     {
-#if !defined(NDEBUG) && defined(_MSC_VER) && defined(DEBUG_INDENT)
+#if defined(ENABLE_DEBUG_LOG) && defined(DEBUG_INDENT)
         SPRTF("%s Indent from %d to %d\n", __FUNCTION__, pprint->indent[ 0 ].spaces, indent );
 #endif  
         pprint->indent[ 0 ].spaces = indent;
     }
 }
 
+
+/****************************************************************************//*
+ ** MARK: - Pretty Printer Utilities
+ ***************************************************************************/
+
+
+static ctmbstr CDATA_START           = "<![CDATA[";  /**< */
+static ctmbstr CDATA_END             = "]]>";        /**< */
+static ctmbstr JS_COMMENT_START      = "//";         /**< */
+static ctmbstr JS_COMMENT_END        = "";           /**< */
+static ctmbstr VB_COMMENT_START      = "\'";         /**< */
+static ctmbstr VB_COMMENT_END        = "";           /**< */
+static ctmbstr CSS_COMMENT_START     = "/*";         /**< */
+static ctmbstr CSS_COMMENT_END       = "*/";         /**< */
+static ctmbstr DEFAULT_COMMENT_START = "";           /**< */
+static ctmbstr DEFAULT_COMMENT_END   = "";           /**< */
+
+
+/**
+ *  Indicates whether or not the pretty printer is currently inside
+ *  the head element.
+ */
+static Bool InsideHead( TidyDocImpl* doc, Node *node )
+{
+  if ( nodeIsHEAD(node) )
+    return yes;
+
+  if ( node->parent != NULL )
+    return InsideHead( doc, node->parent );
+
+  return no;
+}
+
+
+/**
+ *  Is text node and already ends w/ a newline?
+ *
+ *  Used to pretty print CDATA/PRE text content.  If it already ends on a
+ *  newline, it is not necessary to print another before printing end tag.
+ */
+static int TextEndsWithNewline(Lexer *lexer, Node *node, uint mode )
+{
+    if ( (mode & (CDATA|COMMENT)) && TY_(nodeIsText)(node) && node->end > node->start )
+    {
+        uint ch, ix = node->end - 1;
+        /*\
+         *  Skip non-newline whitespace.
+         *  Issue #379 - Only if ix is GT start can it be decremented!
+        \*/
+        while ( ix > node->start && (ch = (lexer->lexbuf[ix] & 0xff))
+                 && ( ch == ' ' || ch == '\t' || ch == '\r' ) )
+            --ix;
+
+        if ( lexer->lexbuf[ ix ] == '\n' )
+          return node->end - ix - 1; /* #543262 tidy eats all memory */
+    }
+    return -1;
+}
+
+
+/**
+ *  Issue #133 - creeping indent - a very OLD bug - 2nd tidy run increases
+ *  the indent! If the node is text, then remove any white space equal to
+ *  the indent, but this also applies to the AspTag, which is text like...
+ *  And may apply to other text like nodes as well.
+ *
+ *  Here the total white space is returned, and then a sister service, IncrWS()
+ *  will advance the start of the lexer output by the amount of the indent.
+ */
+static Bool TY_(nodeIsTextLike)( Node *node )
+{
+    if ( TY_(nodeIsText)(node) )
+        return yes;
+    if ( node->type == AspTag )
+        return yes;
+    if (node->type == PhpTag)
+        return yes; /* Issue #392 */
+    /* add other text like nodes... */
+    return no;
+}
+
+
+/**
+ *  Indicates the amount of whitespace the text in the given node starts with.
+ */
+static int TextStartsWithWhitespace( Lexer *lexer, Node *node, uint start, uint mode )
+{
+    assert( node != NULL );
+    if ( (mode & (CDATA|COMMENT)) && TY_(nodeIsTextLike)(node) && node->end > node->start && start >= node->start )
+    {
+        uint ch, ix = start;
+        /* Skip whitespace. */
+        while ( ix < node->end && (ch = (lexer->lexbuf[ix] & 0xff))
+                && ( ch==' ' || ch=='\t' || ch=='\r' ) )
+            ++ix;
+
+        if ( ix > start )
+          return ix - start;
+    }
+    return -1;
+}
+
+
+/**
+ *  Indicates whether or not the given node contains any CDATA.
+ */
+static Bool HasCDATA( Lexer* lexer, Node* node )
+{
+    /* Scan forward through the textarray. Since the characters we're
+    ** looking for are < 0x7f, we don't have to do any UTF-8 decoding.
+    */
+    ctmbstr start = lexer->lexbuf + node->start;
+    int len = node->end - node->start + 1;
+
+    if ( node->type != TextNode )
+        return no;
+
+    return ( NULL != TY_(tmbsubstrn)( start, len, CDATA_START ));
+}
+
+
+/**
+ *  Indicates whether or not the given node should be indented.
+ */
+static Bool ShouldIndent( TidyDocImpl* doc, Node *node )
+{
+    TidyTriState indentContent = cfgAutoBool( doc, TidyIndentContent );
+    if ( indentContent == TidyNoState )
+        return no;
+
+    if ( nodeIsTEXTAREA(node) )
+        return no;
+
+    if ( indentContent == TidyAutoState )
+    {
+        if ( node->content && TY_(nodeHasCM)(node, CM_NO_INDENT) )
+        {
+            for ( node = node->content; node; node = node->next )
+                if ( TY_(nodeHasCM)(node, CM_BLOCK) )
+                    return yes;
+            return no;
+        }
+
+        if ( TY_(nodeHasCM)(node, CM_HEADING) )
+            return no;
+
+        if ( nodeIsHTML(node) )
+            return no;
+
+        if ( nodeIsP(node) )
+            return no;
+
+        if ( nodeIsTITLE(node) )
+            return no;
+
+        /* http://tidy.sf.net/issue/1610888
+           Indenting <div><img /></div> produces spurious lines with IE 6.x */
+        if ( nodeIsDIV(node) && node->last && nodeIsIMG(node->last) )
+            return no;
+    }
+
+    if ( TY_(nodeHasCM)(node, CM_FIELD | CM_OBJECT) )
+        return yes;
+
+    if ( nodeIsMAP(node) )
+        return yes;
+
+    return ( !TY_(nodeHasCM)( node, CM_INLINE ) && node->content );
+}
+
+
+/****************************************************************************//*
+ ** MARK: - Pretty Printers
+ ***************************************************************************/
+
+
+/**
+ *  Pretty prints the given character in an output-appropriate format.
+ */
 static void PPrintChar( TidyDocImpl* doc, uint c, uint mode )
 {
     tmbchar entity[128];
@@ -819,6 +1143,7 @@ static void PPrintChar( TidyDocImpl* doc, uint c, uint mode )
     TidyPrintImpl* pprint  = &doc->pprint;
     uint outenc = cfg( doc, TidyOutCharEncoding );
     Bool qmark = cfgBool( doc, TidyQuoteMarks );
+    Bool writeEntities = cfgBool( doc, TidyWriteEntities );
 
     if ( c == ' ' && !(mode & (PREFORMATTED | COMMENT | ATTRIBVALUE | CDATA)))
     {
@@ -837,7 +1162,7 @@ static void PPrintChar( TidyDocImpl* doc, uint c, uint mode )
     }
 
     /* comment characters are passed raw */
-    if ( mode & (COMMENT | CDATA) )
+    if ( ! writeEntities || mode & (COMMENT | CDATA) )
     {
         AddChar( pprint, c );
         return;
@@ -899,18 +1224,13 @@ static void PPrintChar( TidyDocImpl* doc, uint c, uint mode )
         }
     }
 
-#if SUPPORT_ASIAN_ENCODINGS
-
-    /* #431953 - start RJ */
     /* Handle encoding-specific issues */
     switch ( outenc )
     {
     case UTF8:
-#if SUPPORT_UTF16_ENCODINGS
     case UTF16:
     case UTF16LE:
     case UTF16BE:
-#endif
         if (!(mode & PREFORMATTED) && cfg(doc, TidyPunctWrap))
         {
             WrapPoint wp = CharacterWrapPoint(c);
@@ -943,22 +1263,6 @@ static void PPrintChar( TidyDocImpl* doc, uint c, uint mode )
         AddChar( pprint, c );
         return;
     }
-    /* #431953 - end RJ */
-
-#else /* SUPPORT_ASIAN_ENCODINGS */
-
-    /* otherwise ISO 2022 characters are passed raw */
-    if (
-#ifndef NO_NATIVE_ISO2022_SUPPORT
-        outenc == ISO2022 ||
-#endif
-        outenc == RAW )
-    {
-        AddChar( pprint, c );
-        return;
-    }
-
-#endif /* SUPPORT_ASIAN_ENCODINGS */
 
     /* don't map latin-1 chars to entities */
     if ( outenc == LATIN1 )
@@ -993,14 +1297,12 @@ static void PPrintChar( TidyDocImpl* doc, uint c, uint mode )
         return;
     }
 
-#if SUPPORT_UTF16_ENCODINGS
     /* don't map UTF-16 chars to entities */
     if ( outenc == UTF16 || outenc == UTF16LE || outenc == UTF16BE )
     {
         AddChar( pprint, c );
         return;
     }
-#endif
 
     /* use numeric entities only  for XML */
     if ( cfgBool(doc, TidyXmlTags) )
@@ -1034,6 +1336,10 @@ static void PPrintChar( TidyDocImpl* doc, uint c, uint mode )
     AddChar( pprint, c );
 }
 
+
+/**
+ *  Supports PPrintText() by returning a start position.
+ */
 static uint IncrWS( uint start, uint end, uint indent, int ixWS )
 {
   if ( ixWS > 0 )
@@ -1043,12 +1349,14 @@ static uint IncrWS( uint start, uint end, uint indent, int ixWS )
   }
   return start;
 }
-/* 
-  The line buffer is uint not char so we can
-  hold Unicode values unencoded. The translation
-  to UTF-8 is deferred to the TY_(WriteChar)() routine called
-  to flush the line buffer.
-*/
+
+
+/**
+ *  Prints text nodes.
+ *  The line buffer is uint not char so we can hold Unicode values unencoded.
+ *  The translation to UTF-8 is deferred to the TY_(WriteChar)() routine
+ *  called to flush the line buffer.
+ */
 static void PPrintText( TidyDocImpl* doc, uint mode, uint indent,
                         Node* node  )
 {
@@ -1099,15 +1407,10 @@ static void PPrintText( TidyDocImpl* doc, uint mode, uint indent,
     }
 }
 
-#if 0
-static void PPrintString( TidyDocImpl* doc, uint indent, ctmbstr str )
-{
-    while ( *str != '\0' )
-        AddChar( &doc->pprint, *str++ );
-}
-#endif /* 0 */
 
-
+/**
+ *  Pretty prints an attribute value.
+ */
 static void PPrintAttrValue( TidyDocImpl* doc, uint indent,
                              ctmbstr value, uint delim, Bool wrappable, Bool scriptAttr )
 {
@@ -1216,6 +1519,11 @@ static void PPrintAttrValue( TidyDocImpl* doc, uint indent,
     AddChar( pprint, delim );
 }
 
+
+/**
+ *  Supports PPrintAttribute() by indicating the number of spaces the attribute
+ *  should be indented.
+ */
 static uint AttrIndent( TidyDocImpl* doc, Node* node, AttVal* ARG_UNUSED(attr) )
 {
   uint spaces = cfg( doc, TidyIndentSpaces );
@@ -1232,16 +1540,10 @@ static uint AttrIndent( TidyDocImpl* doc, Node* node, AttVal* ARG_UNUSED(attr) )
   return spaces;
 }
 
-static Bool AttrNoIndentFirst( /*TidyDocImpl* doc,*/ Node* node, AttVal* attr )
-{
-  return ( attr==node->attributes );
-  
-  /*&& 
-           ( InsideHead(doc, node) ||
-             !TY_(nodeHasCM)(node, CM_INLINE) ) );
-             */
-}
 
+/**
+ *  Prints an attribute.
+ */
 static void PPrintAttribute( TidyDocImpl* doc, uint indent,
                              Node *node, AttVal *attr )
 {
@@ -1249,10 +1551,10 @@ static void PPrintAttribute( TidyDocImpl* doc, uint indent,
     Bool xmlOut    = cfgBool( doc, TidyXmlOut );
     Bool xhtmlOut  = cfgBool( doc, TidyXhtmlOut );
     Bool wrapAttrs = cfgBool( doc, TidyWrapAttVals );
-    Bool ucAttrs   = cfgBool( doc, TidyUpperCaseAttrs );
+    uint ucAttrs   = cfg( doc, TidyUpperCaseAttrs );
     Bool indAttrs  = cfgBool( doc, TidyIndentAttributes );
     uint xtra      = AttrIndent( doc, node, attr );
-    Bool first     = AttrNoIndentFirst( /*doc,*/ node, attr );
+    Bool first     = (attr == node->attributes);
     tmbstr name    = attr->attribute;
     Bool wrappable = no;
     tchar c;
@@ -1268,8 +1570,6 @@ static void PPrintAttribute( TidyDocImpl* doc, uint indent,
             indent += xtra;
             PCondFlushLineSmart( doc, indent );
         }
-        else
-          indAttrs = no;
     }
 
     CheckWrapIndent( doc, indent );
@@ -1298,21 +1598,12 @@ static void PPrintAttribute( TidyDocImpl* doc, uint indent,
 
         if (c > 0x7F)
             name += TY_(GetUTF8)(name, &c);
-        else if (ucAttrs)
+        else if (ucAttrs == TidyUppercaseYes)
             c = TY_(ToUpper)(c);
 
         AddChar(pprint, c);
         ++name;
     }
-
-/* fix for bug 732038 */
-#if 0
-    /* If not indenting attributes, bump up indent for 
-    ** value after putting out name.
-    */
-    if ( !indAttrs )
-        indent += xtra;
-#endif
 
     CheckWrapIndent( doc, indent );
  
@@ -1322,8 +1613,7 @@ static void PPrintAttribute( TidyDocImpl* doc, uint indent,
         Bool scriptAttr = TY_(attrIsEvent)(attr);
 
         if ( xmlOut )
-            PPrintAttrValue( doc, indent, isB ? attr->attribute : NULLSTR,
-                             attr->delim, no, scriptAttr );
+            PPrintAttrValue( doc, indent, "", attr->delim, yes, scriptAttr );
 
         else if ( !isB && !TY_(IsNewNode)(node) )
             PPrintAttrValue( doc, indent, "", attr->delim, yes, scriptAttr );
@@ -1335,6 +1625,10 @@ static void PPrintAttribute( TidyDocImpl* doc, uint indent,
         PPrintAttrValue( doc, indent, attr->value, attr->delim, wrappable, no );
 }
 
+
+/**
+ *  Prints all attributes of the given node.
+ */
 static void PPrintAttrs( TidyDocImpl* doc, uint indent, Node *node )
 {
     TidyPrintImpl* pprint = &doc->pprint;
@@ -1367,6 +1661,10 @@ static void PPrintAttrs( TidyDocImpl* doc, uint indent, Node *node )
     }
 }
 
+
+/**
+ *  Indicates whether a text node ends with a space or newline.
+ */
 Bool TY_(TextNodeEndWithSpace)( Lexer *lexer, Node *node )
 {
     if (TY_(nodeIsText)(node) && node->end > node->start)
@@ -1385,20 +1683,10 @@ Bool TY_(TextNodeEndWithSpace)( Lexer *lexer, Node *node )
     return no;
 }
 
-/*
- Line can be wrapped immediately after inline start tag provided
- if follows a text node ending in a space, or it follows a <br>,
- or its parent is an inline element that that rule applies to.
- This behaviour was reverse engineered from Netscape 3.0.
 
- Line wrapping can occur if an element is not empty and before a block
- level. For instance:
- <p><span>
- x</span>y</p>
- will display properly. Whereas
- <p><img />
- x</p> won't.
-*/
+/**
+ *  Supports AfterSpace().
+ */
 static Bool AfterSpaceImp(Lexer *lexer, Node *node, Bool isEmpty)
 {
     Node *prev;
@@ -1423,77 +1711,64 @@ static Bool AfterSpaceImp(Lexer *lexer, Node *node, Bool isEmpty)
     return AfterSpaceImp(lexer, node->parent, isEmpty);
 }
 
+
+/**
+ *  Indicates whether the given node immediately follows certain things.
+ *  Line can be wrapped immediately after inline start tag provided
+ *  if follows a text node ending in a space, or it follows a <br>,
+ *  or its parent is an inline element that that rule applies to.
+ *  This behaviour was reverse engineered from Netscape 3.0.
+ *
+ *  Line wrapping can occur if an element is not empty and before a block
+ *  level. For instance:
+ *  <p><span>
+ *  x</span>y</p>
+ *  will display properly. Whereas
+ *  <p><img />
+ *  x</p> won't.
+ */
 static Bool AfterSpace(Lexer *lexer, Node *node)
 {
     return AfterSpaceImp(lexer, node, TY_(nodeCMIsEmpty)(node));
 }
 
+
+/**
+ *  Pretty prints a node's end tag.
+ */
 static void PPrintEndTag( TidyDocImpl* doc, uint ARG_UNUSED(mode),
-                          uint ARG_UNUSED(indent), Node *node );
-
-/*\
- *  See Issue #162 - void elements also get a closing tag, like img, br, ...
- *
- *  from : http://www.w3.org/TR/html-markup/syntax.html#syntax-elements
- *  A complete list of the void elements in HTML:
- *  area, base, br, col, command, embed, hr, img, input, keygen, link, meta, param, source, track, wbr
- *
- *  This could be sped up by NOT using the macro nodeIsXXXX, since this repeatedly checks the node,
- *  and then the node->tag, which here are checked at the beginning...
- *
- *  Some have already been done... at least where no macro yet exists.
- *
- *  And maybe a switch(id) case would be faster.
-\*/
-
-static Bool TY_(isVoidElement)( Node *node )
+                          uint ARG_UNUSED(indent), Node *node )
 {
-    TidyTagId id;
-    if ( !node )
-        return no;
-    if ( !node->tag )
-        return no;
-    id = node->tag->id;
-    if (nodeIsAREA(node))
-        return yes;
-    if (nodeIsBASE(node))
-        return yes;
-    if (nodeIsBR(node))
-        return yes;
-    if (nodeIsCOL(node))
-        return yes;
-    /* if (nodeIsCOMMAND(node)) */
-    if (id == TidyTag_COMMAND)
-        return yes;
-    if (nodeIsEMBED(node))
-        return yes;
-    if (nodeIsHR(node))
-        return yes;
-    if (nodeIsIMG(node))
-        return yes;
-    if (nodeIsINPUT(node))
-        return yes;
-    /* if (nodeIsKEYGEN(node)) */
-    if (id == TidyTag_KEYGEN )
-        return yes;
-    if (nodeIsLINK(node))
-        return yes;
-    if (nodeIsMETA(node))
-        return yes;
-    if (nodeIsPARAM(node))
-        return yes;
-    /* if (nodeIsSOURCE(node)) */
-    if (id == TidyTag_SOURCE )
-        return yes;
-    /* if (nodeIsTRACK(node)) */
-    if (id == TidyTag_TRACK )
-        return yes;
-    if (nodeIsWBR(node))
-        return yes;
+    TidyPrintImpl* pprint = &doc->pprint;
+    Bool uc = cfgBool( doc, TidyUpperCaseTags );
+    tmbstr s = node->element;
+    tchar c;
 
-    return no;
+    AddString( pprint, "</" );
+
+    if (s)
+    {
+        while (*s)
+        {
+             c = (unsigned char)*s;
+
+             if (c > 0x7F)
+                 s += TY_(GetUTF8)(s, &c);
+             else if (uc)
+                 c = TY_(ToUpper)(c);
+
+             AddChar(pprint, c);
+             ++s;
+        }
+    }
+
+    AddChar( pprint, '>' );
 }
 
+
+/**
+ *  Prints the tag for the given node.
+ */
 static void PPrintTag( TidyDocImpl* doc,
                        uint mode, uint indent, Node *node )
 {
@@ -1540,10 +1815,11 @@ static void PPrintTag( TidyDocImpl* doc,
      *  Appears this was added for Issue #111, #112, #113, but will now add an end tag
      *  for elements like <img ...> which do NOT have an EndTag, even in html5
      *  See Issue #162 - void elements also get a closing tag, like img, br, ...
-     *  A complete list of the void elements in HTML:
+     *  A complete list of the void elements in HTML.
      *  area, base, br, col, command, embed, hr, img, input, keygen, link, meta, param, source, track, wbr
+     *  A new CM_VOID was added to tag_defs[] to account for these.
     \*/
-    if ((node->type == StartEndTag && TY_(HTMLVersion)(doc) == HT50) && !TY_(isVoidElement)(node) )
+    if ((node->type == StartEndTag && TY_(HTMLVersion)(doc) == HT50) && !TY_(nodeHasCM)(node, CM_VOID ) )
     {
         PPrintEndTag( doc, mode, indent, node );
     }
@@ -1577,46 +1853,10 @@ static void PPrintTag( TidyDocImpl* doc,
     }
 }
 
-static void PPrintEndTag( TidyDocImpl* doc, uint ARG_UNUSED(mode),
-                          uint ARG_UNUSED(indent), Node *node )
-{
-    TidyPrintImpl* pprint = &doc->pprint;
-    Bool uc = cfgBool( doc, TidyUpperCaseTags );
-    tmbstr s = node->element;
-    tchar c;
 
-   /*
-     Netscape ignores SGML standard by not ignoring a
-     line break before </A> or </U> etc. To avoid rendering 
-     this as an underlined space, I disable line wrapping
-     before inline end tags by the #if 0 ... #endif
-   */
-#if 0
-    if ( !(mode & NOWRAP) )
-        SetWrap( doc, indent );
-#endif
-
-    AddString( pprint, "</" );
-
-    if (s)
-    {
-        while (*s)
-        {
-             c = (unsigned char)*s;
-
-             if (c > 0x7F)
-                 s += TY_(GetUTF8)(s, &c);
-             else if (uc)
-                 c = TY_(ToUpper)(c);
-
-             AddChar(pprint, c);
-             ++s;
-        }
-    }
-
-    AddChar( pprint, '>' );
-}
-
+/**
+ *  Pretty Prints a comment of a node.
+ */
 static void PPrintComment( TidyDocImpl* doc, uint indent, Node* node )
 {
     TidyPrintImpl* pprint = &doc->pprint;
@@ -1624,23 +1864,18 @@ static void PPrintComment( TidyDocImpl* doc, uint indent, Node* node )
     SetWrap( doc, indent );
     AddString( pprint, "<!--" );
 
-#if 0
-    SetWrap( doc, indent );
-#endif
-
     PPrintText(doc, COMMENT, 0, node);
-
-#if 0
-    SetWrap( doc, indent );
-    AddString( pprint, "--" );
-#endif
 
     AddString(pprint, "--");
     AddChar( pprint, '>' );
     if ( node->linebreak && node->next )
-        TY_(PFlushLineSmart)( doc, indent );
+        PFlushLineSmart( doc, indent );
 }
 
+
+/**
+ *  Pretty Prints a doctype given a node.
+ */
 static void PPrintDocType( TidyDocImpl* doc, uint indent, Node *node )
 {
     TidyPrintImpl* pprint = &doc->pprint;
@@ -1704,6 +1939,10 @@ static void PPrintDocType( TidyDocImpl* doc, uint indent, Node *node )
     PCondFlushLineSmart( doc, indent );
 }
 
+
+/**
+ *  Pretty Print processing instructions.
+ */
 static void PPrintPI( TidyDocImpl* doc, uint indent, Node *node )
 {
     TidyPrintImpl* pprint = &doc->pprint;
@@ -1735,6 +1974,10 @@ static void PPrintPI( TidyDocImpl* doc, uint indent, Node *node )
     PCondFlushLine( doc, indent );
 }
 
+
+/**
+ *  Pretty Print an XML declaration.
+ */
 static void PPrintXmlDecl( TidyDocImpl* doc, uint indent, Node *node )
 {
     AttVal* att;
@@ -1745,8 +1988,8 @@ static void PPrintXmlDecl( TidyDocImpl* doc, uint indent, Node *node )
     saveWrap = WrapOff( doc );
 
     /* no case translation for XML declaration pseudo attributes */
-    ucAttrs = cfgBool(doc, TidyUpperCaseAttrs);
-    TY_(SetOptionBool)(doc, TidyUpperCaseAttrs, no);
+    ucAttrs = cfg(doc, TidyUpperCaseAttrs);
+    TY_(SetOptionInt)(doc, TidyUpperCaseAttrs, no);
 
     AddString( pprint, "<?xml" );
 
@@ -1760,16 +2003,20 @@ static void PPrintXmlDecl( TidyDocImpl* doc, uint indent, Node *node )
       PPrintAttribute( doc, indent, node, att );
 
     /* restore old config value */
-    TY_(SetOptionBool)(doc, TidyUpperCaseAttrs, ucAttrs);
+    TY_(SetOptionInt)(doc, TidyUpperCaseAttrs, ucAttrs);
 
     if ( node->end <= 0 || doc->lexer->lexbuf[node->end - 1] != '?' )
         AddChar( pprint, '?' );
     AddChar( pprint, '>' );
     WrapOn( doc, saveWrap );
-    TY_(PFlushLineSmart)( doc, indent );
+    PFlushLineSmart( doc, indent );
 }
 
-/* note ASP and JSTE share <% ... %> syntax */
+
+/**
+ *  Pretty Print ASP tags.
+ *  @note ASP and JSTE share <% ... %> syntax
+ */
 static void PPrintAsp( TidyDocImpl* doc, uint indent, Node *node )
 {
     TidyPrintImpl* pprint = &doc->pprint;
@@ -1777,9 +2024,6 @@ static void PPrintAsp( TidyDocImpl* doc, uint indent, Node *node )
     Bool wrapJste = cfgBool( doc, TidyWrapJste );
     uint saveWrap = WrapOffCond( doc, !wrapAsp || !wrapJste );
 
-#if 0
-    SetWrap( doc, indent );
-#endif
     AddString( pprint, "<%" );
     PPrintText( doc, (wrapAsp ? CDATA : COMMENT), indent, node );
     AddString( pprint, "%>" );
@@ -1788,7 +2032,11 @@ static void PPrintAsp( TidyDocImpl* doc, uint indent, Node *node )
     WrapOn( doc, saveWrap );
 }
 
-/* JSTE also supports <# ... #> syntax */
+
+/**
+ *  Pretty Print JSTE tags.
+ *  @note JSTE also supports ... syntax
+ */
 static void PPrintJste( TidyDocImpl* doc, uint indent, Node *node )
 {
     TidyPrintImpl* pprint = &doc->pprint;
@@ -1804,25 +2052,32 @@ static void PPrintJste( TidyDocImpl* doc, uint indent, Node *node )
     WrapOn( doc, saveWrap );
 }
 
-/* PHP is based on XML processing instructions */
+
+/**
+ *  Pretty Print PHP tags.
+ *  @note PHP is based on XML processing instructions
+ */
 static void PPrintPhp( TidyDocImpl* doc, uint indent, Node *node )
 {
     TidyPrintImpl* pprint = &doc->pprint;
     Bool wrapPhp = cfgBool( doc, TidyWrapPhp );
-    uint saveWrap = WrapOffCond( doc, !wrapPhp  );
-#if 0
-    SetWrap( doc, indent );
-#endif
+    /* uint saveWrap = WrapOffCond( doc, !wrapPhp  ); */
 
     AddString( pprint, "<?" );
-    PPrintText( doc, (wrapPhp ? CDATA : COMMENT),
-                indent, node );
+    PPrintText( doc, CDATA, indent, node );
     AddString( pprint, "?>" );
 
-    /* PCondFlushLine( doc, indent ); */
-    WrapOn( doc, saveWrap );
+    /* Issue #437 - add a new line if 'wrap-php' is on */
+    if (wrapPhp)
+        PCondFlushLine( doc, indent ); 
+       
+    /* WrapOn( doc, saveWrap ); */
 }
 
+
+/**
+ *  Pretty Print CDATA.
+ */
 static void PPrintCDATA( TidyDocImpl* doc, uint indent, Node *node )
 {
     uint saveWrap;
@@ -1842,14 +2097,15 @@ static void PPrintCDATA( TidyDocImpl* doc, uint indent, Node *node )
     WrapOn( doc, saveWrap );          /* restore wrapping */
 }
 
+
+/**
+ *  Pretty Print the section tag.
+ */
 static void PPrintSection( TidyDocImpl* doc, uint indent, Node *node )
 {
     TidyPrintImpl* pprint = &doc->pprint;
     Bool wrapSect = cfgBool( doc, TidyWrapSection );
     uint saveWrap = WrapOffCond( doc, !wrapSect  );
-#if 0
-    SetWrap( doc, indent );
-#endif
 
     AddString( pprint, "<![" );
     PPrintText( doc, (wrapSect ? CDATA : COMMENT),
@@ -1861,129 +2117,10 @@ static void PPrintSection( TidyDocImpl* doc, uint indent, Node *node )
 }
 
 
-#if 0
-/*
-** Print script and style elements. For XHTML, wrap the content as follows:
-**
-**     JavaScript:
-**         //<![CDATA[
-**             content
-**         //]]>
-**     VBScript:
-**         '<![CDATA[
-**             content
-**         ']]>
-**     CSS:
-**         / *<![CDATA[* /     Extra spaces to keep compiler happy
-**             content
-**         / *]]>* /
-**     other:
-**         <![CDATA[
-**             content
-**         ]]>
-*/
-#endif
-
-static ctmbstr CDATA_START           = "<![CDATA[";
-static ctmbstr CDATA_END             = "]]>";
-static ctmbstr JS_COMMENT_START      = "//";
-static ctmbstr JS_COMMENT_END        = "";
-static ctmbstr VB_COMMENT_START      = "\'";
-static ctmbstr VB_COMMENT_END        = "";
-static ctmbstr CSS_COMMENT_START     = "/*";
-static ctmbstr CSS_COMMENT_END       = "*/";
-static ctmbstr DEFAULT_COMMENT_START = "";
-static ctmbstr DEFAULT_COMMENT_END   = "";
-
-static Bool InsideHead( TidyDocImpl* doc, Node *node )
-{
-  if ( nodeIsHEAD(node) )
-    return yes;
-
-  if ( node->parent != NULL )
-    return InsideHead( doc, node->parent );
-
-  return no;
-}
-
-/* Is text node and already ends w/ a newline?
- 
-   Used to pretty print CDATA/PRE text content.
-   If it already ends on a newline, it is not
-   necessary to print another before printing end tag.
-*/
-static int TextEndsWithNewline(Lexer *lexer, Node *node, uint mode )
-{
-    if ( (mode & (CDATA|COMMENT)) && TY_(nodeIsText)(node) && node->end > node->start )
-    {
-        uint ch, ix = node->end - 1;
-        /*\
-         *  Skip non-newline whitespace. 
-         *  Issue #379 - Only if ix is GT start can it be decremented!
-        \*/
-        while ( ix > node->start && (ch = (lexer->lexbuf[ix] & 0xff))
-                 && ( ch == ' ' || ch == '\t' || ch == '\r' ) )
-            --ix;
-
-        if ( lexer->lexbuf[ ix ] == '\n' )
-          return node->end - ix - 1; /* #543262 tidy eats all memory */
-    }
-    return -1;
-}
-
-/*\
- * Issue #133 - creeping indent - a very OLD bug - 2nd tidy run increases the indent!
- * If the node is text, then remove any white space equal to the indent,
- * but this also applies to the AspTag, which is text like...
- * And may apply to other text like nodes as well.
- *
- * Here the total white space is returned, and then a sister service, IncrWS() 
- * will advance the start of the lexer output by the amount of the indent.
-\*/
-static Bool TY_(nodeIsTextLike)( Node *node )
-{
-    if ( TY_(nodeIsText)(node) )
-        return yes;
-    if ( node->type == AspTag )
-        return yes;
-    /* add other text like nodes... */
-    return no;
-}
-
-static int TextStartsWithWhitespace( Lexer *lexer, Node *node, uint start, uint mode )
-{
-    assert( node != NULL );
-    if ( (mode & (CDATA|COMMENT)) && TY_(nodeIsTextLike)(node) && node->end > node->start && start >= node->start )
-    {
-        uint ch, ix = start;
-        /* Skip whitespace. */
-        while ( ix < node->end && (ch = (lexer->lexbuf[ix] & 0xff))
-                && ( ch==' ' || ch=='\t' || ch=='\r' ) )
-            ++ix;
-
-        if ( ix > start )
-          return ix - start;
-    }
-    return -1;
-}
-
-static Bool HasCDATA( Lexer* lexer, Node* node )
-{
-    /* Scan forward through the textarray. Since the characters we're
-    ** looking for are < 0x7f, we don't have to do any UTF-8 decoding.
-    */
-    ctmbstr start = lexer->lexbuf + node->start;
-    int len = node->end - node->start + 1;
-
-    if ( node->type != TextNode )
-        return no;
-
-    return ( NULL != TY_(tmbsubstrn)( start, len, CDATA_START ));
-}
-
-
-static
-void PPrintScriptStyle( TidyDocImpl* doc, uint mode, uint indent, Node *node )
+/**
+ *  @todo
+ */
+static void PPrintScriptStyle( TidyDocImpl* doc, uint mode, uint indent, Node *node )
 {
     TidyPrintImpl* pprint = &doc->pprint;
     Node*   content;
@@ -1994,9 +2131,9 @@ void PPrintScriptStyle( TidyDocImpl* doc, uint mode, uint indent, Node *node )
     Bool    xhtmlOut = cfgBool( doc, TidyXhtmlOut );
 
     if ( InsideHead(doc, node) )
-      TY_(PFlushLineSmart)( doc, indent );
+      PFlushLineSmart( doc, indent );
 
-    PCondFlushLineSmart( doc, indent );  /* Issue #56 - long oustanding bug - flush any existing closing tag */
+    PCondFlushLineSmart( doc, indent );  /* Issue #56 - long outstanding bug - flush any existing closing tag */
 
     PPrintTag( doc, mode, indent, node );
 
@@ -2004,7 +2141,7 @@ void PPrintScriptStyle( TidyDocImpl* doc, uint mode, uint indent, Node *node )
        In this case we don't want to flush the line, preferring to keep the required
        closing SCRIPT tag on the same line. */
     if ( node->content != NULL )
-        TY_(PFlushLineSmart)(doc, indent);
+        PFlushLineSmart(doc, indent);
 
     if ( xhtmlOut && node->content != NULL )
     {
@@ -2050,7 +2187,7 @@ void PPrintScriptStyle( TidyDocImpl* doc, uint mode, uint indent, Node *node )
           be one child and the only caller of this function defines
           all these modes already...
         */
-        TY_(PPrintTree)( doc, (mode | PREFORMATTED | NOWRAP | CDATA), 
+        TY_(PPrintTree)( doc, (mode | PREFORMATTED | NOWRAP | CDATA),
                          indent, content );
 
         if ( content == node->last )
@@ -2082,87 +2219,24 @@ void PPrintScriptStyle( TidyDocImpl* doc, uint mode, uint indent, Node *node )
 
     if ( node->content && pprint->indent[ 0 ].spaces != (int)indent )
     {
-#if !defined(NDEBUG) && defined(_MSC_VER) && defined(DEBUG_INDENT)
+#if defined(ENABLE_DEBUG_LOG) && defined(DEBUG_INDENT)
         SPRTF("%s Indent from %d to %d\n", __FUNCTION__, pprint->indent[ 0 ].spaces, indent );
-#endif  
+#endif
         pprint->indent[ 0 ].spaces = indent;
     }
     PPrintEndTag( doc, mode, indent, node );
     if ( cfgAutoBool(doc, TidyIndentContent) == TidyNoState
          && node->next != NULL &&
          !( TY_(nodeHasCM)(node, CM_INLINE) || TY_(nodeIsText)(node) ) )
-        TY_(PFlushLineSmart)( doc, indent );
+        PFlushLineSmart( doc, indent );
 }
 
 
-
-static Bool ShouldIndent( TidyDocImpl* doc, Node *node )
-{
-    TidyTriState indentContent = cfgAutoBool( doc, TidyIndentContent );
-    if ( indentContent == TidyNoState )
-        return no;
-
-    if ( nodeIsTEXTAREA(node) )
-        return no;
-
-    if ( indentContent == TidyAutoState )
-    {
-        if ( node->content && TY_(nodeHasCM)(node, CM_NO_INDENT) )
-        {
-            for ( node = node->content; node; node = node->next )
-                if ( TY_(nodeHasCM)(node, CM_BLOCK) )
-                    return yes;
-            return no;
-        }
-
-        if ( TY_(nodeHasCM)(node, CM_HEADING) )
-            return no;
-
-        if ( nodeIsHTML(node) )
-            return no;
-
-        if ( nodeIsP(node) )
-            return no;
-
-        if ( nodeIsTITLE(node) )
-            return no;
-
-        /* http://tidy.sf.net/issue/1610888
-           Indenting <div><img /></div> produces spurious lines with IE 6.x */
-        if ( nodeIsDIV(node) && node->last && nodeIsIMG(node->last) )
-            return no;
-    }
-
-    if ( TY_(nodeHasCM)(node, CM_FIELD | CM_OBJECT) )
-        return yes;
-
-    if ( nodeIsMAP(node) )
-        return yes;
-
-    return ( !TY_(nodeHasCM)( node, CM_INLINE ) && node->content );
-}
-
-/*
- Feature request #434940 - fix by Dave Raggett/Ignacio Vazquez-Abrams 21 Jun 01
- print just the content of the body element.
- useful when you want to reuse material from
- other documents.
-
- -- Sebastiano Vigna <vigna@dsi.unimi.it>
-*/
-void TY_(PrintBody)( TidyDocImpl* doc )
-{
-    Node *node = TY_(FindBody)( doc );
-
-    if ( node )
-    {
-        for ( node = node->content; node != NULL; node = node->next )
-            TY_(PPrintTree)( doc, NORMAL, 0, node );
-    }
-}
-
-/* #130 MathML attr and entity fix! 
-   Support MathML namepsace */
+/**
+ *  Pretty prints mathml nodes.
+ *  #130 MathML attr and entity fix!
+ *  Support MathML namespace
+ */
 static void PPrintMathML( TidyDocImpl* doc, uint indent, Node *node )
 {
     Node *content;
@@ -2176,6 +2250,29 @@ static void PPrintMathML( TidyDocImpl* doc, uint indent, Node *node )
     PPrintEndTag( doc, mode, indent, node );
 }
 
+
+/**
+ *  Print just the content of the body element.
+ *  useful when you want to reuse material from
+ *  other documents.
+ *  Feature request #434940 - by Dave Raggett/Ignacio Vazquez-Abrams 21 Jun 01
+ *  -- Sebastiano Vigna <vigna@dsi.unimi.it>
+ */
+void TY_(PrintBody)( TidyDocImpl* doc )
+{
+    Node *node = TY_(FindBody)( doc );
+
+    if ( node )
+    {
+        for ( node = node->content; node != NULL; node = node->next )
+            TY_(PPrintTree)( doc, NORMAL, 0, node );
+    }
+}
+
+
+/**
+ *  Pretty prints the HTML tree starting at the given node.
+ */
 void TY_(PPrintTree)( TidyDocImpl* doc, uint mode, uint indent, Node *node )
 {
     Node *content, *last;
@@ -2190,7 +2287,7 @@ void TY_(PPrintTree)( TidyDocImpl* doc, uint mode, uint indent, Node *node )
         doc->progressCallback( tidyImplToDoc(doc), node->line, node->column, doc->pprint.line + 1 );
     }
 
-#if !defined(NDEBUG) && defined(_MSC_VER) && defined(DEBUG_PPRINT)
+#if defined(ENABLE_DEBUG_LOG) && defined(DEBUG_PPRINT)
     dbg_show_node( doc, node, 4, GetSpaces( &doc->pprint ) );
 #endif
 
@@ -2238,7 +2335,7 @@ void TY_(PPrintTree)( TidyDocImpl* doc, uint mode, uint indent, Node *node )
         if ( nodeIsBR(node) && node->prev &&
              !(nodeIsBR(node->prev) || (mode & PREFORMATTED)) &&
              cfgBool(doc, TidyBreakBeforeBR) )
-            TY_(PFlushLineSmart)( doc, indent );
+            PFlushLineSmart( doc, indent );
 
         if ( nodeIsHR(node) )
         {
@@ -2246,7 +2343,7 @@ void TY_(PPrintTree)( TidyDocImpl* doc, uint mode, uint indent, Node *node )
             Bool classic = TidyClassicVS; /* #228 - cfgBool( doc, TidyVertSpace ); */
             if (classic && node->parent && node->parent->content != node)
             {
-                TY_(PFlushLineSmart)( doc, indent );
+                PFlushLineSmart( doc, indent );
             }
         }
 
@@ -2258,7 +2355,7 @@ void TY_(PPrintTree)( TidyDocImpl* doc, uint mode, uint indent, Node *node )
               PCondFlushLineSmart(doc, indent);
           else if ((nodeIsBR(node) && !(mode & PREFORMATTED))
                    || nodeIsHR(node))
-              TY_(PFlushLineSmart)(doc, indent);
+              PFlushLineSmart(doc, indent);
         }
     }
     else /* some kind of container element */
@@ -2277,13 +2374,14 @@ void TY_(PPrintTree)( TidyDocImpl* doc, uint mode, uint indent, Node *node )
             /* insert extra newline for classic formatting */
             if (classic && node->parent && node->parent->content != node)
             {
-                TY_(PFlushLineSmart)( doc, indent );
+                PFlushLineSmart( doc, indent );
             }
 
-            PPrintTag( doc, mode, indent, node );   /* add <pre> or <textarea> tag */
+            /* Issue #697 - Add NOWRAP to the mode */
+            PPrintTag( doc, (mode | NOWRAP), indent, node );   /* add <pre> or <textarea> tag */
 
             indent = 0;
-            /* @camoy Fix #158 - remove inserted newlines in pre - TY_(PFlushLineSmart)( doc, indent ); */
+            /* @camoy Fix #158 - remove inserted newlines in pre - PFlushLineSmart( doc, indent ); */
 
             for ( content = node->content; content; content = content->next )
             {
@@ -2297,7 +2395,7 @@ void TY_(PPrintTree)( TidyDocImpl* doc, uint mode, uint indent, Node *node )
 
             if ( cfgAutoBool(doc, TidyIndentContent) == TidyNoState
                  && node->next != NULL )
-                TY_(PFlushLineSmart)( doc, indent );
+                PFlushLineSmart( doc, indent );
         }
         else if ( nodeIsSTYLE(node) || nodeIsSCRIPT(node) )
         {
@@ -2349,16 +2447,16 @@ void TY_(PPrintTree)( TidyDocImpl* doc, uint mode, uint indent, Node *node )
         else /* other tags */
         {
             Bool indcont  = ( cfgAutoBool(doc, TidyIndentContent) != TidyNoState );
-            Bool indsmart = ( cfgAutoBool(doc, TidyIndentContent) == TidyAutoState );
-            Bool hideend  = cfgBool( doc, TidyHideEndTags ) ||
-              cfgBool( doc, TidyOmitOptionalTags );
+            /* Issue #582 - Seems this is no longer used
+               Bool indsmart = ( cfgAutoBool(doc, TidyIndentContent) == TidyAutoState ); */
+            Bool hideend  = cfgBool( doc, TidyOmitOptionalTags );
             Bool classic  = TidyClassicVS; /* #228 - cfgBool( doc, TidyVertSpace ); */
             uint contentIndent = indent;
 
             /* insert extra newline for classic formatting */
             if (classic && node->parent && node->parent->content != node && !nodeIsHTML(node))
             {
-                TY_(PFlushLineSmart)( doc, indent );
+                PFlushLineSmart( doc, indent );
             }
 
             if ( ShouldIndent(doc, node) )
@@ -2368,11 +2466,13 @@ void TY_(PPrintTree)( TidyDocImpl* doc, uint mode, uint indent, Node *node )
 
             /*\
              *  Issue #180 - with the above PCondFlushLine, 
-             *  this adds an uneccessary additional line!
+             *  this adds an unnecessary additional line!
              *  Maybe only if 'classic' ie --vertical-space yes 
+             *  Issue #582 - maybe this is no longer needed!
+             *  It adds a 3rd newline if indent: auto...
+             *  if ( indsmart && node->prev != NULL && classic)
+             *   PFlushLineSmart( doc, indent );
             \*/
-            if ( indsmart && node->prev != NULL && classic)
-                TY_(PFlushLineSmart)( doc, indent );
 
             /* do not omit elements with attributes */
             if ( !hideend || !TY_(nodeHasCM)(node, CM_OMITST) ||
@@ -2389,7 +2489,7 @@ void TY_(PPrintTree)( TidyDocImpl* doc, uint mode, uint indent, Node *node )
                 }
                 else if ( TY_(nodeHasCM)(node, CM_HTML) || nodeIsNOFRAMES(node) ||
                           (TY_(nodeHasCM)(node, CM_HEAD) && !nodeIsTITLE(node)) )
-                    TY_(PFlushLineSmart)( doc, contentIndent );
+                    PFlushLineSmart( doc, contentIndent );
             }
             else if ( ShouldIndent(doc, node) )
             {
@@ -2409,7 +2509,7 @@ void TY_(PPrintTree)( TidyDocImpl* doc, uint mode, uint indent, Node *node )
                      content->tag && !TY_(nodeHasCM)(content, CM_INLINE) )
                 {
                     /* TY_(PFlushLine)(fout, indent); */
-                    TY_(PFlushLineSmart)( doc, contentIndent );
+                    PFlushLineSmart( doc, contentIndent );
                 }
 
                 TY_(PPrintTree)( doc, mode, contentIndent, content );
@@ -2439,7 +2539,7 @@ void TY_(PPrintTree)( TidyDocImpl* doc, uint mode, uint indent, Node *node )
                 {
                     /* newline before endtag for classic formatting */
                     if ( classic && !HasMixedContent(node) )
-                        TY_(PFlushLineSmart)( doc, indent );
+                        PFlushLineSmart( doc, indent );
                     PPrintEndTag( doc, mode, indent, node );
                 }
                 else if (hideend)
@@ -2448,7 +2548,7 @@ void TY_(PPrintTree)( TidyDocImpl* doc, uint mode, uint indent, Node *node )
                     TidyPrintImpl* pprint = &doc->pprint;
                     if (pprint->indent[ 0 ].spaces != (int)indent)
                     {
-#if !defined(NDEBUG) && defined(_MSC_VER) && defined(DEBUG_INDENT)
+#if defined(ENABLE_DEBUG_LOG) && defined(DEBUG_INDENT)
                         SPRTF("%s Indent from %d to %d\n", __FUNCTION__, pprint->indent[ 0 ].spaces, indent );
 #endif  
                         pprint->indent[ 0 ].spaces = indent;
@@ -2457,114 +2557,160 @@ void TY_(PPrintTree)( TidyDocImpl* doc, uint mode, uint indent, Node *node )
             }
 
             if (!indcont && !hideend && !nodeIsHTML(node) && !classic)
-                TY_(PFlushLineSmart)( doc, indent );
+                PFlushLineSmart( doc, indent );
             else if (classic && node->next != NULL && TY_(nodeHasCM)(node, CM_LIST|CM_DEFLIST|CM_TABLE|CM_BLOCK/*|CM_HEADING*/))
-                TY_(PFlushLineSmart)( doc, indent );
+                PFlushLineSmart( doc, indent );
         }
     }
 }
 
+
+/**
+ *  Pretty print the tree as XML, starting with the given node.
+ */
 void TY_(PPrintXMLTree)( TidyDocImpl* doc, uint mode, uint indent, Node *node )
 {
     Bool xhtmlOut = cfgBool( doc, TidyXhtmlOut );
-    if (node == NULL)
-        return;
-
-    if (doc->progressCallback)
-    {
-        doc->progressCallback( tidyImplToDoc(doc), node->line, node->column, doc->pprint.line + 1 );
-    }
+    Node* next = NULL;
     
-    if ( node->type == TextNode)
+    while ( node  )
     {
-        PPrintText( doc, mode, indent, node );
-    }
-    else if ( node->type == CommentTag )
-    {
-        PCondFlushLineSmart( doc, indent );
-        PPrintComment( doc, indent, node);
-        /* PCondFlushLine( doc, 0 ); */
-    }
-    else if ( node->type == RootNode )
-    {
-        Node *content;
-        for ( content = node->content;
-              content != NULL;
-              content = content->next )
-           TY_(PPrintXMLTree)( doc, mode, indent, content );
-    }
-    else if ( node->type == DocTypeTag )
-        PPrintDocType( doc, indent, node );
-    else if ( node->type == ProcInsTag )
-        PPrintPI( doc, indent, node );
-    else if ( node->type == XmlDecl )
-        PPrintXmlDecl( doc, indent, node );
-    else if ( node->type == CDATATag )
-        PPrintCDATA( doc, indent, node );
-    else if ( node->type == SectionTag )
-        PPrintSection( doc, indent, node );
-    else if ( node->type == AspTag )
-        PPrintAsp( doc, indent, node );
-    else if ( node->type == JsteTag)
-        PPrintJste( doc, indent, node );
-    else if ( node->type == PhpTag)
-        PPrintPhp( doc, indent, node );
-    else if ( TY_(nodeHasCM)(node, CM_EMPTY) ||
-              (node->type == StartEndTag && !xhtmlOut) )
-    {
-        PCondFlushLineSmart( doc, indent );
-        PPrintTag( doc, mode, indent, node );
-        /* TY_(PFlushLine)( doc, indent ); */
-    }
-    else /* some kind of container element */
-    {
-        uint spaces = cfg( doc, TidyIndentSpaces );
-        Node *content;
-        Bool mixed = no;
-        uint cindent;
-
-        for ( content = node->content; content; content = content->next )
+        next = node->next;
+        
+        if (doc->progressCallback)
         {
-            if ( TY_(nodeIsText)(content) )
-            {
-                mixed = yes;
+            doc->progressCallback( tidyImplToDoc(doc), node->line, node->column, doc->pprint.line + 1 );
+        }
+        
+        if ( node->type == TextNode)
+        {
+            PPrintText( doc, mode, indent, node );
+        }
+        else if ( node->type == RootNode )
+        {
+            if (node->content) {
+                node = node->content;
+                continue;
+            } else {
                 break;
             }
         }
-
-        PCondFlushLineSmart( doc, indent );
-
-        if ( TY_(XMLPreserveWhiteSpace)(doc, node) )
+        else if ( node->type == CommentTag )
         {
-            indent = 0;
-            mixed = no;
-            cindent = 0;
+            PCondFlushLineSmart( doc, indent );
+            PPrintComment( doc, indent, node);
+            /* PCondFlushLine( doc, 0 ); */
         }
-        else if (mixed)
-            cindent = indent;
-        else
-            cindent = indent + spaces;
+        else if ( node->type == DocTypeTag )
+            PPrintDocType( doc, indent, node );
+        else if ( node->type == ProcInsTag )
+            PPrintPI( doc, indent, node );
+        else if ( node->type == XmlDecl )
+            PPrintXmlDecl( doc, indent, node );
+        else if ( node->type == CDATATag )
+            PPrintCDATA( doc, indent, node );
+        else if ( node->type == SectionTag )
+            PPrintSection( doc, indent, node );
+        else if ( node->type == AspTag )
+            PPrintAsp( doc, indent, node );
+        else if ( node->type == JsteTag)
+            PPrintJste( doc, indent, node );
+        else if ( node->type == PhpTag)
+            PPrintPhp( doc, indent, node );
+        else if ( TY_(nodeHasCM)(node, CM_EMPTY) ||
+                  (node->type == StartEndTag && !xhtmlOut) )
+        {
+            PCondFlushLineSmart( doc, indent );
+            PPrintTag( doc, mode, indent, node );
+            /* TY_(PFlushLine)( doc, indent ); */
+        }
+        else if ( node->type != RootNode )  /* some kind of container element */
+        {
+            TidyParserMemory memory = {0};
+            uint spaces = cfg( doc, TidyIndentSpaces );
+            Node *content;
+            Bool mixed = no;
+            uint cindent;
 
-        PPrintTag( doc, mode, indent, node );
-        if ( !mixed && node->content )
-            TY_(PFlushLineSmart)( doc, cindent );
- 
-        for ( content = node->content; content; content = content->next )
-            TY_(PPrintXMLTree)( doc, mode, cindent, content );
+            for ( content = node->content; content; content = content->next )
+            {
+                if ( TY_(nodeIsText)(content) )
+                {
+                    mixed = yes;
+                    break;
+                }
+            }
 
-        if ( !mixed && node->content )
             PCondFlushLineSmart( doc, indent );
 
-        PPrintEndTag( doc, mode, indent, node );
-        /* PCondFlushLine( doc, indent ); */
-    }
-}
+            if ( TY_(XMLPreserveWhiteSpace)(doc, node) )
+            {
+                indent = 0;
+                mixed = no;
+                cindent = 0;
+            }
+            else if (mixed)
+                cindent = indent;
+            else
+                cindent = indent + spaces;
 
-/*
- * local variables:
- * mode: c
- * indent-tabs-mode: nil
- * c-basic-offset: 4
- * eval: (c-set-offset 'substatement-open 0)
- * end:
- */
+            PPrintTag( doc, mode, indent, node );
+            if ( !mixed && node->content )
+                PFlushLineSmart( doc, cindent );
+     
+            memory.original_node = node;
+            memory.reentry_node = next;
+            memory.register_1 = mixed;
+            memory.register_2 = indent;
+            TY_(pushMemory)(doc, memory);
+
+            /* Prevent infinite indentation. Seriously, at what point is
+               anyone going to read a file with infinite indentation? It
+               slows down rendering for arbitrarily-deep test cases that
+               are only meant to crash Tidy in the first place. Let's
+               consider whether to remove this limitation, lower it,
+               increase it, or add a new configuration option to control
+               it, or even emit an info-level message about it.
+             */
+            if (indent < TIDY_INDENTATION_LIMIT * spaces)
+                indent = cindent;
+
+            if (node->content)
+            {
+                node = node->content;
+                continue;
+            }
+        }
+        
+        if (next)
+        {
+            node = next;
+            continue;
+        }
+        
+        if ( TY_(isEmptyParserStack)(doc) == no )
+        {
+            /* It's possible that the reentry_node is null, because we
+               only pushed this record as a marker for the end tag while
+               there was no next node. Thus the loop will pop until we have
+               what we need. This also closes multiple end tags.
+             */
+            do {
+                TidyParserMemory memory = TY_(popMemory)(doc);
+                Node* close_node = memory.original_node;
+                Bool mixed = memory.register_1;
+                indent = memory.register_2;
+                
+                if ( !mixed && close_node->content )
+                    PCondFlushLineSmart( doc, indent );
+
+                PPrintEndTag( doc, mode, indent, close_node );
+                /* PCondFlushLine( doc, indent ); */
+           
+                node = memory.reentry_node;
+            } while ( node == NULL && TY_(isEmptyParserStack)(doc) == no );
+            continue;;
+        }
+        node = NULL;
+    } /* while */
+}

@@ -1,33 +1,46 @@
 #ifndef __LEXER_H__
 #define __LEXER_H__
 
-/* lexer.h -- Lexer for html parser
-  
-   (c) 1998-2008 (W3C) MIT, ERCIM, Keio University
-   See tidy.h for the copyright notice.
 
-  Given an input source, it returns a sequence of tokens.
-
-     GetToken(source) gets the next token
-     UngetToken(source) provides one level undo
-
-  The tags include an attribute list:
-
-    - linked list of attribute/value nodes
-    - each node has 2 NULL-terminated strings.
-    - entities are replaced in attribute values
-
-  white space is compacted if not in preformatted mode
-  If not in preformatted mode then leading white space
-  is discarded and subsequent white space sequences
-  compacted to single space characters.
-
-  If XmlTags is no then Tag names are folded to upper
-  case and attribute names to lower case.
-
- Not yet done:
-    -   Doctype subset and marked sections
-*/
+/**************************************************************************//**
+ * @file
+ * Lexer for HTML and XML Parsers.
+ *
+ *   Given an input source, it returns a sequence of tokens.
+ *
+ *      GetToken(source) gets the next token
+ *      UngetToken(source) provides one level undo
+ *
+ *   The tags include an attribute list:
+ *
+ *     - linked list of attribute/value nodes
+ *     - each node has 2 NULL-terminated strings.
+ *     - entities are replaced in attribute values
+ *
+ *   white space is compacted if not in preformatted mode
+ *   If not in preformatted mode then leading white space
+ *   is discarded and subsequent white space sequences
+ *   compacted to single space characters.
+ *
+ *   If XmlTags is no then Tag names are folded to upper
+ *   case and attribute names to lower case.
+ *
+ *  Not yet done:
+ *     - Doctype subset and marked sections
+ *
+ * @author  HTACG, et al (consult git log)
+ *
+ * @copyright
+ *     (c) 1998-2021 (W3C) MIT, ERCIM, Keio University, and HTACG.
+ *     See tidy.h for the copyright notice.
+ * @par
+ *     All Rights Reserved.
+ * @par
+ *     See `tidy.h` for the complete license.
+ *
+ * @date Additional updates: consult git log
+ *
+ ******************************************************************************/
 
 #ifdef __cplusplus
 extern "C" {
@@ -35,8 +48,23 @@ extern "C" {
 
 #include "forward.h"
 
-/* lexer character types
-*/
+/** @addtogroup internal_api */
+/** @{ */
+
+
+/***************************************************************************//**
+ ** @defgroup lexer_h HTML and XML Lexing
+ **
+ ** These functions and structures form the internal API for document
+ ** lexing.
+ **
+ ** @{
+ ******************************************************************************/
+
+
+/**
+ *  Lexer character types.
+ */
 #define digit       1u
 #define letter      2u
 #define namechar    4u
@@ -47,8 +75,9 @@ extern "C" {
 #define digithex    128u
 
 
-/* node->type is one of these values
-*/
+/**
+ *  node->type is one of these values
+ */
 typedef enum
 {
   RootNode,
@@ -68,9 +97,9 @@ typedef enum
 } NodeType;
 
 
-
-/* lexer GetToken states
-*/
+/**
+ *  Lexer GetToken() states.
+ */
 typedef enum
 {
   LEX_CONTENT,
@@ -88,7 +117,10 @@ typedef enum
   LEX_XMLDECL
 } LexerState;
 
-/* ParseDocTypeDecl state constants */
+
+/**
+ *  ParseDocTypeDecl state constants.
+ */
 typedef enum
 {
   DT_INTERMEDIATE,
@@ -98,67 +130,45 @@ typedef enum
   DT_INTSUBSET
 } ParseDocTypeDeclState;
 
-/* content model shortcut encoding
 
-   Descriptions are tentative.
-*/
+/**
+ *  Content model shortcut encoding.
+ *  Descriptions are tentative.
+ */
 #define CM_UNKNOWN      0
-/* Elements with no content. Map to HTML specification. */
-#define CM_EMPTY        (1 << 0)
-/* Elements that appear outside of "BODY". */
-#define CM_HTML         (1 << 1)
-/* Elements that can appear within HEAD. */
-#define CM_HEAD         (1 << 2)
-/* HTML "block" elements. */
-#define CM_BLOCK        (1 << 3)
-/* HTML "inline" elements. */
-#define CM_INLINE       (1 << 4)
-/* Elements that mark list item ("LI"). */
-#define CM_LIST         (1 << 5)
-/* Elements that mark definition list item ("DL", "DT"). */
-#define CM_DEFLIST      (1 << 6)
-/* Elements that can appear inside TABLE. */
-#define CM_TABLE        (1 << 7)
-/* Used for "THEAD", "TFOOT" or "TBODY". */
-#define CM_ROWGRP       (1 << 8)
-/* Used for "TD", "TH" */
-#define CM_ROW          (1 << 9)
-/* Elements whose content must be protected against white space movement.
-   Includes some elements that can found in forms. */
-#define CM_FIELD        (1 << 10)
-/* Used to avoid propagating inline emphasis inside some elements
-   such as OBJECT or APPLET. */
-#define CM_OBJECT       (1 << 11)
-/* Elements that allows "PARAM". */
-#define CM_PARAM        (1 << 12)
-/* "FRAME", "FRAMESET", "NOFRAMES". Used in ParseFrameSet. */
-#define CM_FRAMES       (1 << 13)
-/* Heading elements (h1, h2, ...). */
-#define CM_HEADING      (1 << 14)
-/* Elements with an optional end tag. */
-#define CM_OPT          (1 << 15)
-/* Elements that use "align" attribute for vertical position. */
-#define CM_IMG          (1 << 16)
-/* Elements with inline and block model. Used to avoid calling InlineDup. */
-#define CM_MIXED        (1 << 17)
-/* Elements whose content needs to be indented only if containing one 
-   CM_BLOCK element. */
-#define CM_NO_INDENT    (1 << 18)
-/* Elements that are obsolete (such as "dir", "menu"). */
-#define CM_OBSOLETE     (1 << 19)
-/* User defined elements. Used to determine how attributes wihout value
-   should be printed. */
-#define CM_NEW          (1 << 20)
-/* Elements that cannot be omitted. */
-#define CM_OMITST       (1 << 21)
+#define CM_EMPTY        (1 << 0)   /**< Elements with no content. Map to HTML specification. */
+#define CM_HTML         (1 << 1)   /**< Elements that appear outside of "BODY". */
+#define CM_HEAD         (1 << 2)   /**< Elements that can appear within HEAD. */
+#define CM_BLOCK        (1 << 3)   /**< HTML "block" elements. */
+#define CM_INLINE       (1 << 4)   /**< HTML "inline" elements. */
+#define CM_LIST         (1 << 5)   /**< Elements that mark list item ("LI"). */
+#define CM_DEFLIST      (1 << 6)   /**< Elements that mark definition list item ("DL", "DT"). */
+#define CM_TABLE        (1 << 7)   /**< Elements that can appear inside TABLE. */
+#define CM_ROWGRP       (1 << 8)   /**< Used for "THEAD", "TFOOT" or "TBODY". */
+#define CM_ROW          (1 << 9)   /**< Used for "TD", "TH" */
+#define CM_FIELD        (1 << 10)  /**< Elements whose content must be protected against white space movement. Includes some elements that can found in forms. */
+#define CM_OBJECT       (1 << 11)  /**< Used to avoid propagating inline emphasis inside some elements such as OBJECT or APPLET. */
+#define CM_PARAM        (1 << 12)  /**< Elements that allows "PARAM". */
+#define CM_FRAMES       (1 << 13)  /**< "FRAME", "FRAMESET", "NOFRAMES". Used in ParseFrameSet. */
+#define CM_HEADING      (1 << 14)  /**< Heading elements (h1, h2, ...). */
+#define CM_OPT          (1 << 15)  /**< Elements with an optional end tag. */
+#define CM_IMG          (1 << 16)  /**< Elements that use "align" attribute for vertical position. */
+#define CM_MIXED        (1 << 17)  /**< Elements with inline and block model. Used to avoid calling InlineDup. */
+#define CM_NO_INDENT    (1 << 18)  /**< Elements whose content needs to be indented only if containing one CM_BLOCK element. */
+#define CM_OBSOLETE     (1 << 19)  /**< Elements that are obsolete (such as "dir", "menu"). */
+#define CM_NEW          (1 << 20)  /**< User defined elements. Used to determine how attributes without value should be printed. */
+#define CM_OMITST       (1 << 21)  /**< Elements that cannot be omitted. */
+#define CM_VOID         (1 << 22)  /**< Elements that are void per https://www.w3.org/TR/2011/WD-html-markup-20110113/syntax.html#syntax-elements. */
 
-/* If the document uses just HTML 2.0 tags and attributes described
-** it as HTML 2.0 Similarly for HTML 3.2 and the 3 flavors of HTML 4.0.
-** If there are proprietary tags and attributes then describe it as
-** HTML Proprietary. If it includes the xml-lang or xmlns attributes
-** but is otherwise HTML 2.0, 3.2 or 4.0 then describe it as one of the
-** flavors of Voyager (strict, loose or frameset).
-*/
+
+/**
+ *  If the document uses just HTML 2.0 tags and attributes described
+ *  it is HTML 2.0. Similarly for HTML 3.2 and the 3 flavors of HTML 4.0.
+ *  If there are proprietary tags and attributes then describe it as
+ *  HTML Proprietary. If it includes the xml-lang or xmlns attributes
+ *  but is otherwise HTML 2.0, 3.2 or 4.0 then describe it as one of the
+ *  flavors of Voyager (strict, loose or frameset).
+ */
 
 /* unknown */
 #define xxxx                   0u
@@ -207,8 +217,8 @@ typedef enum
 #define VERS_IFRAME        (VERS_HTML40_LOOSE|VERS_FRAMESET)
 #define VERS_LOOSE         (VERS_HTML20|VERS_HTML32|VERS_IFRAME)
 #define VERS_EVENTS        (VERS_HTML40|VERS_XHTML11)
-#define VERS_FROM32        (VERS_HTML32|VERS_HTML40)
-#define VERS_FROM40        (VERS_HTML40|VERS_XHTML11|VERS_BASIC)
+#define VERS_FROM32        (VERS_HTML32|VERS_HTML40|HT50)
+#define VERS_FROM40        (VERS_HTML40|VERS_XHTML11|VERS_BASIC|VERS_HTML5)
 #define VERS_XHTML         (X10S|X10T|X10F|XH11|XB10|XH50)
 
 /* strict */
@@ -220,8 +230,10 @@ typedef enum
 /* all proprietary types */
 #define VERS_PROPRIETARY   (VERS_NETSCAPE|VERS_MICROSOFT|VERS_SUN)
 
-/* Linked list of class names and styles
-*/
+
+/**
+ *  Linked list of class names and styles
+ */
 struct _Style;
 typedef struct _Style TagStyle;
 
@@ -234,8 +246,9 @@ struct _Style
 };
 
 
-/* Linked list of style properties
-*/
+/**
+ *  Linked list of style properties
+ */
 struct _StyleProp;
 typedef struct _StyleProp StyleProp;
 
@@ -247,11 +260,9 @@ struct _StyleProp
 };
 
 
-
-
-/* Attribute/Value linked list node
-*/
-
+/**
+ *  Attribute/Value linked list node
+ */
 struct _AttVal
 {
     AttVal*           next;
@@ -264,109 +275,91 @@ struct _AttVal
 };
 
 
-
-/*
-  Mosaic handles inlines via a separate stack from other elements
-  We duplicate this to recover from inline markup errors such as:
-
-     <i>italic text
-     <p>more italic text</b> normal text
-
-  which for compatibility with Mosaic is mapped to:
-
-     <i>italic text</i>
-     <p><i>more italic text</i> normal text
-
-  Note that any inline end tag pop's the effect of the current
-  inline start tag, so that </b> pop's <i> in the above example.
+/**
+ *  Mosaic handles inlines via a separate stack from other elements
+ *  We duplicate this to recover from inline markup errors such as:
+ *     ~~~
+ *     <i>italic text
+ *     <p>more italic text</b> normal text
+ *     ~~~
+ *  which for compatibility with Mosaic is mapped to:
+ *     ~~~
+ *     <i>italic text</i>
+ *     <p><i>more italic text</i> normal text
+ *     ~~~
+ *  Note that any inline end tag pop's the effect of the current
+ *  inline start tag, so that `</b>` pop's `<i>` in the above example.
 */
 struct _IStack
 {
     IStack*     next;
-    const Dict* tag;        /* tag's dictionary definition */
-    tmbstr      element;    /* name (NULL for text nodes) */
+    const Dict* tag;        /**< tag's dictionary definition */
+    tmbstr      element;    /**< name (NULL for text nodes) */
     AttVal*     attributes;
 };
 
 
-/* HTML/XHTML/XML Element, Comment, PI, DOCTYPE, XML Decl,
-** etc. etc.
-*/
-
+/**
+ *  HTML/XHTML/XML Element, Comment, PI, DOCTYPE, XML Decl, etc., etc.
+ */
 struct _Node
 {
-    Node*       parent;         /* tree structure */
+    Node*       parent;         /**< tree structure */
     Node*       prev;
     Node*       next;
     Node*       content;
     Node*       last;
 
     AttVal*     attributes;
-    const Dict* was;            /* old tag when it was changed */
-    const Dict* tag;            /* tag's dictionary definition */
+    const Dict* was;            /**< old tag when it was changed */
+    const Dict* tag;            /**< tag's dictionary definition */
 
-    tmbstr      element;        /* name (NULL for text nodes) */
+    tmbstr      element;        /**< name (NULL for text nodes) */
 
-    uint        start;          /* start of span onto text array */
-    uint        end;            /* end of span onto text array */
-    NodeType    type;           /* TextNode, StartTag, EndTag etc. */
+    uint        start;          /**< start of span onto text array */
+    uint        end;            /**< end of span onto text array */
+    NodeType    type;           /**< TextNode, StartTag, EndTag etc. */
 
-    uint        line;           /* current line of document */
-    uint        column;         /* current column of document */
+    uint        line;           /**< current line of document */
+    uint        column;         /**< current column of document */
+    
+    int         idx;            /**< general purpose register */
 
-    Bool        closed;         /* true if closed by explicit end tag */
-    Bool        implicit;       /* true if inferred */
-    Bool        linebreak;      /* true if followed by a line break */
-
-#ifdef TIDY_STORE_ORIGINAL_TEXT
-    tmbstr      otext;
-#endif
+    Bool        closed;         /**< true if closed by explicit end tag */
+    Bool        implicit;       /**< true if inferred */
+    Bool        linebreak;      /**< true if followed by a line break */
 };
 
 
-/*
-  The following are private to the lexer
-  Use NewLexer() to create a lexer, and
-  FreeLexer() to free it.
-*/
-
+/**
+ *  The following are private to the lexer.
+ *  Use `NewLexer()` to create a lexer, and `FreeLexer()` to free it.
+ */
 struct _Lexer
 {
-#if 0  /* Move to TidyDocImpl */
-    StreamIn* in;           /* document content input */
-    StreamOut* errout;      /* error output stream */
+    uint lines;                /**< lines seen */
+    uint columns;              /**< at start of current token */
+    Bool waswhite;             /**< used to collapse contiguous white space */
+    Bool pushed;               /**< true after token has been pushed back */
+    Bool insertspace;          /**< when space is moved after end tag */
+    Bool excludeBlocks;        /**< Netscape compatibility */
+    Bool exiled;               /**< true if moved out of table */
+    Bool isvoyager;            /**< true if xmlns attribute on html element (i.e., "Voyager" was the W3C codename for XHTML). */
+    uint versions;             /**< bit vector of HTML versions */
+    uint doctype;              /**< version as given by doctype (if any) */
+    uint versionEmitted;       /**< version of doctype emitted */
+    Bool bad_doctype;          /**< e.g. if html or PUBLIC is missing */
+    uint txtstart;             /**< start of current node */
+    uint txtend;               /**< end of current node */
+    LexerState state;          /**< state of lexer's finite state machine */
 
-    uint badAccess;         /* for accessibility errors */
-    uint badLayout;         /* for bad style errors */
-    uint badChars;          /* for bad character encodings */
-    uint badForm;           /* for mismatched/mispositioned form tags */
-    uint warnings;          /* count of warnings in this document */
-    uint errors;            /* count of errors */
-#endif
+    Node* token;               /**< last token returned by GetToken() */
+    Node* itoken;              /**< last duplicate inline returned by GetToken() */
+    Node* root;                /**< remember root node of the document */
+    Node* parent;              /**< remember parent node for CDATA elements */
 
-    uint lines;             /* lines seen */
-    uint columns;           /* at start of current token */
-    Bool waswhite;          /* used to collapse contiguous white space */
-    Bool pushed;            /* true after token has been pushed back */
-    Bool insertspace;       /* when space is moved after end tag */
-    Bool excludeBlocks;     /* Netscape compatibility */
-    Bool exiled;            /* true if moved out of table */
-    Bool isvoyager;         /* true if xmlns attribute on html element */
-    uint versions;          /* bit vector of HTML versions */
-    uint doctype;           /* version as given by doctype (if any) */
-    uint versionEmitted;    /* version of doctype emitted */
-    Bool bad_doctype;       /* e.g. if html or PUBLIC is missing */
-    uint txtstart;          /* start of current node */
-    uint txtend;            /* end of current node */
-    LexerState state;       /* state of lexer's finite state machine */
-
-    Node* token;            /* last token returned by GetToken() */
-    Node* itoken;           /* last duplicate inline returned by GetToken() */
-    Node* root;             /* remember root node of the document */
-    Node* parent;           /* remember parent node for CDATA elements */
-    
-    Bool seenEndBody;       /* true if a </body> tag has been encountered */
-    Bool seenEndHtml;       /* true if a </html> tag has been encountered */
+    Bool seenEndBody;          /**< true if a `</body>` tag has been encountered */
+    Bool seenEndHtml;          /**< true if a `</html>` tag has been encountered */
 
     /*
       Lexer character buffer
@@ -377,247 +370,383 @@ struct _Lexer
 
       lexsize must be reset for each file.
     */
-    tmbstr lexbuf;          /* MB character buffer */
-    uint lexlength;         /* allocated */
-    uint lexsize;           /* used */
+    tmbstr lexbuf;             /**< MB character buffer */
+    uint lexlength;            /**< allocated */
+    uint lexsize;              /**< used */
 
     /* Inline stack for compatibility with Mosaic */
-    Node* inode;            /* for deferring text node */
-    IStack* insert;         /* for inferring inline tags */
+    Node* inode;               /**< for deferring text node */
+    IStack* insert;            /**< for inferring inline tags */
     IStack* istack;
-    uint istacklength;      /* allocated */
-    uint istacksize;        /* used */
-    uint istackbase;        /* start of frame */
+    uint istacklength;         /**< allocated */
+    uint istacksize;           /**< used */
+    uint istackbase;           /**< start of frame */
 
-    TagStyle *styles;          /* used for cleaning up presentation markup */
+    TagStyle *styles;          /**< used for cleaning up presentation markup */
 
-    TidyAllocator* allocator; /* allocator */
+    TidyAllocator* allocator;  /**< allocator */
 
     /* Miscellaneous */
     uint commentSymbol;
-
-#if 0
-    TidyDocImpl* doc;       /* Pointer back to doc for error reporting */
-#endif 
 };
 
 
-/* Lexer Functions
-*/
-
-/* choose what version to use for new doctype */
-int TY_(HTMLVersion)( TidyDocImpl* doc );
-
-/* everything is allowed in proprietary version of HTML */
-/* this is handled here rather than in the tag/attr dicts */
-
-void TY_(ConstrainVersion)( TidyDocImpl* doc, uint vers );
-
-Bool TY_(IsWhite)(uint c);
-Bool TY_(IsDigit)(uint c);
-Bool TY_(IsLetter)(uint c);
-Bool TY_(IsHTMLSpace)(uint c);
-Bool TY_(IsNewline)(uint c);
-Bool TY_(IsNamechar)(uint c);
-Bool TY_(IsXMLLetter)(uint c);
-Bool TY_(IsXMLNamechar)(uint c);
-
-/* Bool IsLower(uint c); */
-Bool TY_(IsUpper)(uint c);
-uint TY_(ToLower)(uint c);
-uint TY_(ToUpper)(uint c);
-
-Lexer* TY_(NewLexer)( TidyDocImpl* doc );
-void TY_(FreeLexer)( TidyDocImpl* doc );
-
-/* store character c as UTF-8 encoded byte stream */
-void TY_(AddCharToLexer)( Lexer *lexer, uint c );
-
-/*
-  Used for elements and text nodes
-  element name is NULL for text nodes
-  start and end are offsets into lexbuf
-  which contains the textual content of
-  all elements in the parse tree.
-
-  parent and content allow traversal
-  of the parse tree in any direction.
-  attributes are represented as a linked
-  list of AttVal nodes which hold the
-  strings for attribute/value pairs.
-*/
-Node* TY_(NewNode)( TidyAllocator* allocator, Lexer* lexer );
-
-
-/* used to clone heading nodes when split by an <HR> */
-Node* TY_(CloneNode)( TidyDocImpl* doc, Node *element );
-
-/* free node's attributes */
-void TY_(FreeAttrs)( TidyDocImpl* doc, Node *node );
-
-/* doesn't repair attribute list linkage */
-void TY_(FreeAttribute)( TidyDocImpl* doc, AttVal *av );
-
-/* detach attribute from node */
-void TY_(DetachAttribute)( Node *node, AttVal *attr );
-
-/* detach attribute from node then free it
-*/
-void TY_(RemoveAttribute)( TidyDocImpl* doc, Node *node, AttVal *attr );
-
-/*
-  Free document nodes by iterating through peers and recursing
-  through children. Set next to NULL before calling FreeNode()
-  to avoid freeing peer nodes. Doesn't patch up prev/next links.
+/**
+ *  modes for GetToken()
  */
-void TY_(FreeNode)( TidyDocImpl* doc, Node *node );
-
-Node* TY_(TextToken)( Lexer *lexer );
-
-/* used for creating preformatted text from Word2000 */
-Node* TY_(NewLineNode)( Lexer *lexer );
-
-/* used for adding a &nbsp; for Word2000 */
-Node* TY_(NewLiteralTextNode)(Lexer *lexer, ctmbstr txt );
-
-void TY_(AddStringLiteral)( Lexer* lexer, ctmbstr str );
-/* void AddStringLiteralLen( Lexer* lexer, ctmbstr str, int len ); */
-
-/* find element */
-Node* TY_(FindDocType)( TidyDocImpl* doc );
-Node* TY_(FindHTML)( TidyDocImpl* doc );
-Node* TY_(FindHEAD)( TidyDocImpl* doc );
-Node* TY_(FindTITLE)(TidyDocImpl* doc);
-Node* TY_(FindBody)( TidyDocImpl* doc );
-Node* TY_(FindXmlDecl)(TidyDocImpl* doc);
-
-/* Returns containing block element, if any */
-Node* TY_(FindContainer)( Node* node );
-
-/* add meta element for Tidy */
-Bool TY_(AddGenerator)( TidyDocImpl* doc );
-
-uint TY_(ApparentVersion)( TidyDocImpl* doc );
-
-ctmbstr TY_(HTMLVersionNameFromCode)( uint vers, Bool isXhtml );
-
-Bool TY_(WarnMissingSIInEmittedDocType)( TidyDocImpl* doc );
-
-Bool TY_(SetXHTMLDocType)( TidyDocImpl* doc );
-
-
-/* fixup doctype if missing */
-Bool TY_(FixDocType)( TidyDocImpl* doc );
-
-/* ensure XML document starts with <?xml version="1.0"?> */
-/* add encoding attribute if not using ASCII or UTF-8 output */
-Bool TY_(FixXmlDecl)( TidyDocImpl* doc );
-
-Node* TY_(InferredTag)(TidyDocImpl* doc, TidyTagId id);
-
-void TY_(UngetToken)( TidyDocImpl* doc );
-
-
-/*
-  modes for GetToken()
-
-  MixedContent   -- for elements which don't accept PCDATA
-  Preformatted   -- white space preserved as is
-  IgnoreMarkup   -- for CDATA elements such as script, style
-*/
 typedef enum
 {
-  IgnoreWhitespace,
-  MixedContent,
-  Preformatted,
-  IgnoreMarkup,
-  OtherNamespace,
-  CdataContent
+  IgnoreWhitespace,     /**< */
+  MixedContent,         /**< for elements which don't accept PCDATA */
+  Preformatted,         /**< white space preserved as is */
+  IgnoreMarkup,         /**< for CDATA elements such as script, style */
+  OtherNamespace,       /**< */
+  CdataContent          /**< */
 } GetTokenMode;
 
-Node* TY_(GetToken)( TidyDocImpl* doc, GetTokenMode mode );
 
-void TY_(InitMap)(void);
+/** @name Lexer Functions
+ *  @{
+ */
 
 
-/* create a new attribute */
-AttVal* TY_(NewAttribute)( TidyDocImpl* doc );
+/**
+ *  Choose what version to use for new doctype
+ */
+TY_PRIVATE int TY_(HTMLVersion)( TidyDocImpl* doc );
 
-/* create a new attribute with given name and value */
-AttVal* TY_(NewAttributeEx)( TidyDocImpl* doc, ctmbstr name, ctmbstr value,
+
+/**
+ *  Everything is allowed in proprietary version of HTML.
+ *  This is handled here rather than in the tag/attr dicts
+ */
+TY_PRIVATE void TY_(ConstrainVersion)( TidyDocImpl* doc, uint vers );
+
+TY_PRIVATE Bool TY_(IsWhite)(uint c);
+TY_PRIVATE Bool TY_(IsDigit)(uint c);
+TY_PRIVATE Bool TY_(IsLetter)(uint c);
+TY_PRIVATE Bool TY_(IsHTMLSpace)(uint c);
+TY_PRIVATE Bool TY_(IsNewline)(uint c);
+TY_PRIVATE Bool TY_(IsNamechar)(uint c);
+TY_PRIVATE Bool TY_(IsXMLLetter)(uint c);
+TY_PRIVATE Bool TY_(IsXMLNamechar)(uint c);
+
+TY_PRIVATE Bool TY_(IsUpper)(uint c);
+TY_PRIVATE uint TY_(ToLower)(uint c);
+TY_PRIVATE uint TY_(ToUpper)(uint c);
+
+TY_PRIVATE Lexer* TY_(NewLexer)( TidyDocImpl* doc );
+TY_PRIVATE void TY_(FreeLexer)( TidyDocImpl* doc );
+
+
+/**
+ *  Store character c as UTF-8 encoded byte stream
+ */
+TY_PRIVATE void TY_(AddCharToLexer)( Lexer *lexer, uint c );
+
+
+/**
+ *  Used for elements and text nodes.
+ *   - Element name is NULL for text nodes.
+ *   - start and end are offsets into lexbuf,
+ *     which contains the textual content of
+ *     all elements in the parse tree.
+ *   - parent and content allow traversal
+ *     of the parse tree in any direction.
+ *   - attributes are represented as a linked
+ *     list of AttVal nodes which hold the
+ *     strings for attribute/value pairs.
+*/
+TY_PRIVATE Node* TY_(NewNode)( TidyAllocator* allocator, Lexer* lexer );
+
+
+/**
+ *  Used to clone heading nodes when split by an `<HR>`
+ */
+TY_PRIVATE Node* TY_(CloneNode)( TidyDocImpl* doc, Node *element );
+
+
+/**
+ *  Free node's attributes
+ */
+TY_PRIVATE void TY_(FreeAttrs)( TidyDocImpl* doc, Node *node );
+
+
+/**
+ *  Doesn't repair attribute list linkage
+ */
+TY_PRIVATE void TY_(FreeAttribute)( TidyDocImpl* doc, AttVal *av );
+
+
+/**
+ * Detach attribute from node
+ */
+TY_PRIVATE void TY_(DetachAttribute)( Node *node, AttVal *attr );
+
+
+/**
+ *  Detach attribute from node then free it.
+ */
+TY_PRIVATE void TY_(RemoveAttribute)( TidyDocImpl* doc, Node *node, AttVal *attr );
+
+
+/**
+ *  Free document nodes by iterating through peers and recursing
+ *  through children. Set `next` to `NULL` before calling `FreeNode()`
+ *  to avoid freeing peer nodes. Doesn't patch up prev/next links.
+ */
+TY_PRIVATE void TY_(FreeNode)( TidyDocImpl* doc, Node *node );
+
+
+TY_PRIVATE Node* TY_(TextToken)( Lexer *lexer );
+
+
+/**
+ *  Used for creating preformatted text from Word2000.
+ */
+TY_PRIVATE Node* TY_(NewLineNode)( Lexer *lexer );
+
+
+/**
+ *  Used for adding a &nbsp; for Word2000.
+ */
+TY_PRIVATE Node* TY_(NewLiteralTextNode)(Lexer *lexer, ctmbstr txt );
+
+
+TY_PRIVATE void TY_(AddStringLiteral)( Lexer* lexer, ctmbstr str );
+TY_PRIVATE Node* TY_(FindDocType)( TidyDocImpl* doc );
+TY_PRIVATE Node* TY_(FindHTML)( TidyDocImpl* doc );
+TY_PRIVATE Node* TY_(FindHEAD)( TidyDocImpl* doc );
+TY_PRIVATE Node* TY_(FindTITLE)(TidyDocImpl* doc);
+TY_PRIVATE Node* TY_(FindBody)( TidyDocImpl* doc );
+TY_PRIVATE Node* TY_(FindXmlDecl)(TidyDocImpl* doc);
+
+
+/**
+ *  Returns containing block element, if any
+ */
+TY_PRIVATE Node* TY_(FindContainer)( Node* node );
+
+
+/**
+ *  Add meta element for Tidy.
+ */
+TY_PRIVATE Bool TY_(AddGenerator)( TidyDocImpl* doc );
+
+TY_PRIVATE uint TY_(ApparentVersion)( TidyDocImpl* doc );
+
+TY_PRIVATE ctmbstr TY_(HTMLVersionNameFromCode)( uint vers, Bool isXhtml );
+
+TY_PRIVATE uint TY_(HTMLVersionNumberFromCode)( uint vers );
+
+TY_PRIVATE Bool TY_(WarnMissingSIInEmittedDocType)( TidyDocImpl* doc );
+
+TY_PRIVATE Bool TY_(SetXHTMLDocType)( TidyDocImpl* doc );
+
+
+/**
+ *  Fixup doctype if missing.
+ */
+TY_PRIVATE Bool TY_(FixDocType)( TidyDocImpl* doc );
+
+
+/**
+ *  Ensure XML document starts with <?xml version="1.0"?>,and
+ *  add encoding attribute if not using ASCII or UTF-8 output.
+ */
+TY_PRIVATE Bool TY_(FixXmlDecl)( TidyDocImpl* doc );
+
+
+TY_PRIVATE Node* TY_(InferredTag)(TidyDocImpl* doc, TidyTagId id);
+
+TY_PRIVATE void TY_(UngetToken)( TidyDocImpl* doc );
+
+TY_PRIVATE Node* TY_(GetToken)( TidyDocImpl* doc, GetTokenMode mode );
+
+TY_PRIVATE void TY_(InitMap)(void);
+
+
+/**
+ *  Create a new attribute.
+ */
+TY_PRIVATE AttVal* TY_(NewAttribute)( TidyDocImpl* doc );
+
+
+/**
+ *  Create a new attribute with given name and value.
+ */
+TY_PRIVATE AttVal* TY_(NewAttributeEx)( TidyDocImpl* doc, ctmbstr name, ctmbstr value,
                              int delim );
 
-/* insert attribute at the end of attribute list of a node */
-void TY_(InsertAttributeAtEnd)( Node *node, AttVal *av );
 
-/* insert attribute at the start of attribute list of a node */
-void TY_(InsertAttributeAtStart)( Node *node, AttVal *av );
+/**
+ *  Insert attribute at the end of attribute list of a node.
+ */
+TY_PRIVATE void TY_(InsertAttributeAtEnd)( Node *node, AttVal *av );
 
-/*************************************
-  In-line Stack functions
-*************************************/
+/**
+ *  Insert attribute at the start of attribute list of a node.
+ */
+TY_PRIVATE void TY_(InsertAttributeAtStart)( Node *node, AttVal *av );
 
 
-/* duplicate attributes */
-AttVal* TY_(DupAttrs)( TidyDocImpl* doc, AttVal* attrs );
+/** @}
+ *  @name Inline Stack Functions
+ *  @{
+ */
 
-/*
-  push a copy of an inline node onto stack
-  but don't push if implicit or OBJECT or APPLET
-  (implicit tags are ones generated from the istack)
 
-  One issue arises with pushing inlines when
-  the tag is already pushed. For instance:
+/**
+ *  Duplicate attributes.
+ */
+TY_PRIVATE AttVal* TY_(DupAttrs)( TidyDocImpl* doc, AttVal* attrs );
 
-      <p><em>text
-      <p><em>more text
 
-  Shouldn't be mapped to
+/**
+ *  Push a copy of an inline node onto stack, but don't push if
+ *  implicit or OBJECT or APPLET (implicit tags are ones generated
+ *  from the istack).
+ *
+ *  One issue arises with pushing inlines when the tag is already pushed.
+ *  For instance:
+ *    ~~~
+ *    <p><em>text
+ *    <p><em>more text
+ *    ~~~
+ *  Shouldn't be mapped to
+ *    ~~~
+ *    <p><em>text</em></p>
+ *    <p><em><em>more text</em></em>
+ *    ~~~
+ */
+TY_PRIVATE void TY_(PushInline)( TidyDocImpl* doc, Node* node );
 
-      <p><em>text</em></p>
-      <p><em><em>more text</em></em>
-*/
-void TY_(PushInline)( TidyDocImpl* doc, Node* node );
 
-/* pop inline stack */
-void TY_(PopInline)( TidyDocImpl* doc, Node* node );
+/**
+ * Pop inline stack.
+ */
+TY_PRIVATE void TY_(PopInline)( TidyDocImpl* doc, Node* node );
 
-Bool TY_(IsPushed)( TidyDocImpl* doc, Node* node );
-Bool TY_(IsPushedLast)( TidyDocImpl* doc, Node *element, Node *node );
 
-/*
-  This has the effect of inserting "missing" inline
-  elements around the contents of blocklevel elements
-  such as P, TD, TH, DIV, PRE etc. This procedure is
-  called at the start of ParseBlock. when the inline
-  stack is not empty, as will be the case in:
+TY_PRIVATE Bool TY_(IsPushed)( TidyDocImpl* doc, Node* node );
+TY_PRIVATE Bool TY_(IsPushedLast)( TidyDocImpl* doc, Node *element, Node *node );
 
-    <i><h1>italic heading</h1></i>
 
-  which is then treated as equivalent to
+/**
+ *  This has the effect of inserting "missing" inline elements around the
+ *  contents of blocklevel elements such as P, TD, TH, DIV, PRE etc. This
+ *  procedure is called at the start of `ParseBlock`, when the inline
+ *  stack is not empty, as will be the case in:
+ *    ~~~
+ *    <i><h1>italic heading</h1></i>
+ *    ~~~
+ *  which is then treated as equivalent to
+ *    ~~~
+ *    <h1><i>italic heading</i></h1>
+ *    ~~~
+ *  This is implemented by setting the lexer into a mode where it gets
+ *  tokens from the inline stack rather than from the input stream.
+ */
+TY_PRIVATE int TY_(InlineDup)( TidyDocImpl* doc, Node *node );
 
-    <h1><i>italic heading</i></h1>
 
-  This is implemented by setting the lexer into a mode
-  where it gets tokens from the inline stack rather than
-  from the input stream.
-*/
-int TY_(InlineDup)( TidyDocImpl* doc, Node *node );
+/**
+ *  Defer duplicates when entering a table or other
+ *  element where the inlines shouldn't be duplicated.
+ */
+TY_PRIVATE void TY_(DeferDup)( TidyDocImpl* doc );
 
-/*
- defer duplicates when entering a table or other
- element where the inlines shouldn't be duplicated
-*/
-void TY_(DeferDup)( TidyDocImpl* doc );
-Node* TY_(InsertedToken)( TidyDocImpl* doc );
 
-/* stack manipulation for inline elements */
-Bool TY_(SwitchInline)( TidyDocImpl* doc, Node* element, Node* node );
-Bool TY_(InlineDup1)( TidyDocImpl* doc, Node* node, Node* element );
+TY_PRIVATE Node* TY_(InsertedToken)( TidyDocImpl* doc );
+
+/**
+ *  Stack manipulation for inline elements
+ */
+TY_PRIVATE Bool TY_(SwitchInline)( TidyDocImpl* doc, Node* element, Node* node );
+
+
+TY_PRIVATE Bool TY_(InlineDup1)( TidyDocImpl* doc, Node* node, Node* element );
+
+
+/** @}
+ *  @name Generic stack of nodes.
+ *  @{
+ */
+
+
+/**
+ * This typedef represents a stack of addresses to nodes. Tidy uses these to
+ * try to limit recursion by pushing nodes to a stack when possible instead
+ * of recursing.
+ */
+typedef struct _Stack {
+    int top;                        /**< Current top position. */
+    unsigned capacity;              /**< Current capacity. Can be expanded. */
+    Node **firstNode;               /** A pointer to the first pointer to a Node in an array of node addresses. */
+    TidyAllocator* allocator;       /**< Tidy's allocator, used at instantiation and expanding. */
+} Stack;
+ 
+
+/**
+ * Create a new stack with a given starting capacity. If memory allocation
+ * fails, then the allocator will panic the program automatically.
+ */
+TY_PRIVATE Stack* TY_(newStack)(TidyDocImpl *doc, uint capacity);
+ 
+
+/**
+ *  Increase the stack size. This will be called automatically when the
+ *  current stack is full. If memory allocation fails, then the allocator
+ *  will panic the program automatically.
+ */
+TY_PRIVATE void TY_(growStack)(Stack *stack);
+
+
+/**
+ * Stack is full when top is equal to the last index.
+ */
+TY_PRIVATE Bool TY_(stackFull)(Stack *stack);
+
+
+/**
+ * Stack is empty when top is equal to -1
+ */
+TY_PRIVATE Bool TY_(stackEmpty)(Stack *stack);
+ 
+
+/**
+ * Push an item to the stack.
+ */
+TY_PRIVATE void TY_(push)(Stack *stack, Node *node);
+
+
+/**
+ * Pop an item from the stack.
+ */
+TY_PRIVATE Node* TY_(pop)(Stack *stack);
+
+
+/**
+ * Peek at the stack.
+ */
+TY_PRIVATE Node* TY_(peek)(Stack *stack);
+
+/**
+ *  Frees the stack when done.
+ */
+TY_PRIVATE void TY_(freeStack)(Stack *stack, TidyDocImpl *doc);
+
+
+/** @}
+ */
+
 
 #ifdef __cplusplus
 }
 #endif
 
+
+/** @} end parser_h group */
+/** @} end internal_api group */
 
 #endif /* __LEXER_H__ */
