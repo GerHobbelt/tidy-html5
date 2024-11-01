@@ -1301,7 +1301,7 @@ void TY_(ReportMarkupVersion)( TidyDocImpl* doc )
 ** Called by tidyRunDiagnostics(), from console.
 ** 
 ** If there are 'warnings' or 'errors', then add 'not all shown'
-** msg, if the are any options that 'limit' message output. Not 
+** msg, if there are any options that 'limit' message output. Not 
 ** intended to be accurate or exact, just an indication that
 ** some message(s) **may** have been suppressed, for some reason.
 */
