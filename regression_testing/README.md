@@ -3,6 +3,7 @@ Tidy Regression Testing Specification
 
 Background
 ----------
+
 HTML Tidy uses regression testing as its main means of quality control when 
 implementing new features and fixing bugs. HTML Tidy has been in constant 
 development since before unit testing and automated testing were in wide use,
@@ -39,6 +40,7 @@ the test case.
 
 About the Test Tool (test.rb)
 -----------------------------
+
 The `test.rb` tool replaces the previous Windows shell and Bash testing 
 scripts. This start-from-scratch approach is intended to provide a single 
 script that’s platform agnostic, for the primary purpose of enabling 
@@ -58,6 +60,7 @@ scripting environment wrapper, please feel free to request such.
 
 Building Tidy, and Tidy Versions
 --------------------------------
+
 The testing tool works by executing `tidy` (or `tidy.exe`, referred to only 
 as `tidy` continuing) on your platform. Naturally, you don’t want to conduct 
 testing using the normal, installed version of `tidy`, but rather version(s)
@@ -78,6 +81,7 @@ as an optional argument, too.
 
 Static Build Considerations
 ---------------------------
+
 By default, HTML Tidy is built as a console application statically linked to 
 LibTidy. Although the option to link against a dylib or dll exist when 
 building, it’s suggested that you no longer do so, because you might put 
@@ -121,6 +125,7 @@ test.rb
 ~~~ 
 
 ### Testing
+
 When used without any arguments, help will be provided. In general, though, 
 you can do the following:
 
