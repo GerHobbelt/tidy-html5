@@ -316,6 +316,7 @@ static struct _dispatchTable {
     { MISMATCHED_ATTRIBUTE_ERROR,   TidyError,       formatAttributeReport   },
     { MISMATCHED_ATTRIBUTE_WARN,    TidyWarning,     formatAttributeReport   },
     { MISSING_ATTR_VALUE,           TidyWarning,     formatAttributeReport   },
+    { MISSING_ATTR_VALUE_BOOL,      TidyInfo,        formatAttributeReport   },
     { MISSING_ATTRIBUTE,            TidyWarning,     formatStandard          },
     { MISSING_DOCTYPE,              TidyWarning,     formatStandard          },
     { MISSING_ENDTAG_BEFORE,        TidyWarning,     formatStandard          },
@@ -573,7 +574,7 @@ TidyMessageImpl *formatAttributeReport(TidyDocImpl* doc, Node *element, Node *no
 
         case ATTRIBUTE_IS_NOT_ALLOWED:
         case JOINING_ATTRIBUTE:
-        case MISSING_ATTR_VALUE:
+        case MISSING_ATTR_VALUE_BOOL:
         case PROPRIETARY_ATTRIBUTE:
             return TY_(tidyMessageCreateWithNode)(doc, node, code, level, tagdesc, name );
 
@@ -597,6 +598,16 @@ TidyMessageImpl *formatAttributeReport(TidyDocImpl* doc, Node *element, Node *no
 
         case REPEATED_ATTRIBUTE:
             return TY_(tidyMessageCreateWithNode)(doc, node, code, level, tagdesc, value, name );
+
+        case MISSING_ATTR_VALUE:
+        {
+            if ( !cfg( doc, TidyBoolAttrs) )
+                return TY_(tidyMessageCreateWithNode)(doc, node, code, level, tagdesc, name );
+            else
+                TY_(Report)( doc, NULL, node, MISSING_ATTR_VALUE_BOOL, av );
+
+            return NULL;
+        }
 
         case UNEXPECTED_END_OF_FILE_ATTR:
             /* on end of file adjust reported position to end of input */
