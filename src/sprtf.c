@@ -224,7 +224,7 @@ char *get_date_stg(void)
 {
     char *ps;
     struct timeval tv;
-    gettimeofday( (struct timeval *)&tv, (struct timezone *)0 );
+    gettimeofday( (struct timeval *)&tv, NULL );
     ps = GetNxtBuf();
     *ps = 0;
     add_date_stg( ps, &tv );
@@ -235,7 +235,7 @@ char *get_time_stg(void)
 {
     char *ps;
     struct timeval tv;
-    gettimeofday( (struct timeval *)&tv, (struct timezone *)0 );
+    gettimeofday( (struct timeval *)&tv, NULL );
     ps = GetNxtBuf();
     *ps = 0;
     add_time_stg( ps, &tv );
@@ -246,7 +246,7 @@ char *get_date_time_stg(void)
 {
     char *ps;
     struct timeval tv;
-    gettimeofday( (struct timeval *)&tv, (struct timezone *)0 );
+    gettimeofday( (struct timeval *)&tv, NULL );
     ps = GetNxtBuf();
     *ps = 0;
     add_date_stg( ps, &tv );
