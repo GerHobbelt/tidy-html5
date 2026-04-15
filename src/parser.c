@@ -3256,8 +3256,16 @@ Node* TY_(ParseInline)( TidyDocImpl *doc, Node *element, GetTokenMode mode )
         else if ( nodeIsFONT(element) )
             doc->badLayout |= USING_FONT;
 
-        /* Inline elements may or may not be within a preformatted element */
-        if (mode != Preformatted)
+        /* Inline elements inside a <pre> subtree must keep preformatted
+           tokenization even when the dispatcher re-enters them with the
+           controller's default mode. */
+        if ( IsPreDescendant(element) )
+        {
+            DEBUG_LOG_GET_OLD_MODE;
+            mode = Preformatted;
+            DEBUG_LOG_CHANGE_MODE;
+        }
+        else if (mode != Preformatted)
         {
             DEBUG_LOG_GET_OLD_MODE;
             mode = MixedContent;
@@ -4458,9 +4466,11 @@ Node* TY_(ParsePre)( TidyDocImpl* doc, Node *pre, GetTokenMode ARG_UNUSED(mode) 
             DEBUG_LOG_EXIT;
             return NULL;
         }
-    }
 
-    TY_(InlineDup)( doc, NULL ); /* tell lexer to insert inlines if needed */
+        /* Only arm inline duplication once for a <pre> subtree. Re-arming it
+           on parser-stack re-entry recreates the same implicit inline token. */
+        TY_(InlineDup)( doc, NULL );
+    }
 
     while ( state != STATE_COMPLETE )
     {
