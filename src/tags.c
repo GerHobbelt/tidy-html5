@@ -8,6 +8,7 @@
  * See tidy.h for the copyright notice.
  */
 
+#include "tidyplatform.h"
 #include "tidy-int.h"
 #include "message.h"
 #include "tmbstr.h"
