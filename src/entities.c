@@ -2077,7 +2077,7 @@ static const entity entities[] =
     { NULL, VERS_UNKNOWN, 0 },
 };
 
-static entity* entity_lookup_by_initial[128];
+static const entity* entity_lookup_by_initial[128] = { 0 };
 
 /* 
 ** Pure static implementation.  Trades off lookup speed
